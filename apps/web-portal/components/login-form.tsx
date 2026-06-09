@@ -2,6 +2,8 @@
 
 import type { FormEvent } from "react";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { allowedAdminRoles, isAllowedAdminRole } from "@/lib/auth-config";
 import { createClient } from "@/lib/supabase";
 
 export function LoginForm() {
@@ -9,6 +11,8 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const searchParams = useSearchParams();
+  const nextPath = searchParams.get("next") ?? "/dashboard";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -16,16 +20,52 @@ export function LoginForm() {
     setMessage("");
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    setIsSubmitting(false);
-
-    if (error) {
-      setMessage(error.message);
+    if (error || !data.session || !data.user) {
+      setIsSubmitting(false);
+      setMessage(error?.message ?? "Supabase did not return a valid session.");
       return;
     }
 
-    window.location.href = "/dashboard";
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, role, is_active")
+      .eq("id", data.user.id)
+      .maybeSingle<{ id: string; role: string; is_active: boolean }>();
+
+    if (profileError) {
+      setIsSubmitting(false);
+      setMessage(profileError.message);
+      return;
+    }
+
+    if (!profile?.is_active || !isAllowedAdminRole(profile.role)) {
+      await fetch("/auth/session", { method: "DELETE" });
+      await supabase.auth.signOut();
+      setIsSubmitting(false);
+      window.location.href = "/access-denied";
+      return;
+    }
+
+    const sessionResponse = await fetch("/auth/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        expires_in: data.session.expires_in
+      })
+    });
+
+    if (!sessionResponse.ok) {
+      setIsSubmitting(false);
+      setMessage("Signed in, but could not create the secure browser session. Please try again.");
+      return;
+    }
+
+    setIsSubmitting(false);
+    window.location.href = nextPath.startsWith("/") ? nextPath : "/dashboard";
   }
 
   return (
@@ -39,6 +79,7 @@ export function LoginForm() {
         <input id="password" type="password" placeholder="••••••••" value={password} onChange={(event) => setPassword(event.target.value)} required />
       </div>
       {message ? <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{message}</p> : null}
+      <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">Allowed roles: {allowedAdminRoles.join(", ")}.</p>
       <button className="w-full rounded-xl bg-navy-700 px-4 py-3 text-sm font-semibold text-white hover:bg-navy-900 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Signing in..." : "Sign in with Supabase Auth"}
       </button>

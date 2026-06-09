@@ -1,6 +1,15 @@
 import { AppShell, Card, PageHeader } from "@/components/shell";
-import { ErrorState, LoadingState, MetricCard, SearchFilterBar } from "@/components/ui";
+import { MetricCard, SearchFilterBar } from "@/components/ui";
+import { createServerSupabaseClient } from "@/lib/auth-server";
 
-export default function ReportsPage() {
-  return <AppShell><PageHeader title="Reports" description="Operational and settlement reporting for claim volumes, pending work, SLA risk, document quality, and insurer turnaround time." /><SearchFilterBar searchPlaceholder="Search reports by insurer, branch, status, customer, or date range" filterLabel="Report view" /><div className="grid gap-4 md:grid-cols-3"><MetricCard label="Average settlement TAT" value="18 days" hint="Across settled commercial claims" tone="navy" icon="◷" /><MetricCard label="Claims by status" value="16 stages" hint="Full lifecycle visibility" tone="green" icon="▥" /><MetricCard label="Document rejection rate" value="6.4%" hint="Needs processor coaching" tone="amber" icon="◧" /></div><div className="mt-6 grid gap-6 lg:grid-cols-2"><Card><h3 className="text-lg font-semibold text-navy-900">Insurer performance</h3><div className="mt-4 space-y-4">{["Sample Insurance Ltd.", "Reliable General Insurance", "National Commercial Cover"].map((insurer, index) => <div key={insurer}><div className="flex justify-between text-sm"><span className="text-slate-600">{insurer}</span><span className="font-semibold text-navy-900">{14 + index * 3} days</span></div><div className="mt-2 h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-navy-700" style={{ width: `${75 - index * 15}%` }} /></div></div>)}</div></Card><div className="space-y-4"><LoadingState className="hidden" label="Loading chart data from Supabase..." /><ErrorState className="hidden" title="Report export unavailable" description="This state is used when report generation or Supabase connectivity fails." /></div></div></AppShell>;
+export default async function ReportsPage() {
+  const supabase = await createServerSupabaseClient();
+  const [claims, customers, policies, vehicles] = await Promise.all([
+    supabase.from("claims").select("id", { count: "exact", head: true }),
+    supabase.from("customers").select("id", { count: "exact", head: true }),
+    supabase.from("policies").select("id", { count: "exact", head: true }),
+    supabase.from("vehicles").select("id", { count: "exact", head: true })
+  ]);
+
+  return <AppShell><PageHeader title="Reports" description="Operational reporting backed by live Supabase table counts." /><SearchFilterBar searchPlaceholder="Search reports by insurer, branch, status, customer, or date range" filterLabel="Report view" /><div className="grid gap-4 md:grid-cols-4"><MetricCard label="Claims" value={`${claims.count ?? 0}`} hint="Live claim records" tone="navy" icon="◆" /><MetricCard label="Customers" value={`${customers.count ?? 0}`} hint="Live customer records" tone="green" icon="◉" /><MetricCard label="Policies" value={`${policies.count ?? 0}`} hint="Live policy records" tone="amber" icon="◫" /><MetricCard label="Vehicles" value={`${vehicles.count ?? 0}`} hint="Live vehicle records" tone="red" icon="▣" /></div><Card className="mt-6"><h3 className="text-lg font-semibold text-navy-900">Report exports</h3><p className="mt-2 text-sm text-slate-600">Detailed charts and exports can be added once production data accumulates. This page intentionally avoids demo insurer or claim statistics.</p></Card></AppShell>;
 }

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { navItems } from "./data";
+import { LogoutButton } from "./logout-button";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -15,11 +16,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
           <div className="mt-5 rounded-2xl bg-white/10 p-4 ring-1 ring-white/10">
-            <p className="text-xs text-navy-100">Today&apos;s settlement pipeline</p>
-            <div className="mt-2 flex items-end justify-between">
-              <span className="text-2xl font-bold">₹18.4L</span>
-              <span className="rounded-full bg-green-400/20 px-2 py-1 text-xs font-semibold text-green-200">+12%</span>
-            </div>
+            <p className="text-xs text-navy-100">Authenticated workspace</p>
+            <p className="mt-2 text-sm font-semibold text-white">Live Supabase records only</p>
+            <p className="mt-1 text-xs leading-5 text-navy-100">Demo customer and claim metrics are not displayed.</p>
           </div>
         </div>
         <nav className="space-y-1 px-4 py-5">
@@ -34,6 +33,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="rounded-2xl bg-white/10 p-4 text-sm ring-1 ring-white/10">
             <p className="font-semibold text-white">Secure document vault</p>
             <p className="mt-1 text-xs leading-5 text-navy-100">Private Supabase storage for claim files and evidence.</p>
+            <div className="mt-4"><LogoutButton /></div>
           </div>
         </div>
       </aside>
@@ -47,6 +47,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-3">
               <span className="hidden rounded-full bg-green-50 px-3 py-1 text-sm font-medium text-green-700 ring-1 ring-green-200 sm:inline-flex">RLS protected</span>
               <span className="hidden rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600 sm:inline-flex">Live workspace</span>
+              <LogoutButton />
               <div className="h-10 w-10 rounded-full bg-navy-700 text-center text-sm font-bold leading-10 text-white">CB</div>
             </div>
           </div>

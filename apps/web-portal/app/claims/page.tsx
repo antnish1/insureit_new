@@ -1,26 +1,45 @@
 import Link from "next/link";
-import { sampleClaims } from "@/components/data";
-import { AppShell, Card, PageHeader } from "@/components/shell";
-import { EmptyState, PriorityBadge, SearchFilterBar, StatusBadge } from "@/components/ui";
+import { DataError, DataTable } from "@/components/record-list";
+import { AppShell, PageHeader } from "@/components/shell";
+import { SearchFilterBar, StatusBadge } from "@/components/ui";
+import { createServerSupabaseClient } from "@/lib/auth-server";
 
-export default function ClaimsPage() {
+type ClaimRow = {
+  id: string;
+  claim_no: string;
+  current_status: string;
+  estimated_loss: number | null;
+  settlement_amount: number | null;
+  customers: { company_name: string | null; contact_name: string } | null;
+  vehicles: { vehicle_no: string } | null;
+  assignee: { full_name: string } | null;
+};
+
+function currency(value: number | null) {
+  return value == null ? "—" : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value);
+}
+
+export default async function ClaimsPage() {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("claims")
+    .select("id, claim_no, current_status, estimated_loss, settlement_amount, customers(company_name, contact_name), vehicles(vehicle_no), assignee:profiles!claims_assigned_to_fkey(full_name)")
+    .order("created_at", { ascending: false })
+    .returns<ClaimRow[]>();
+
   return (
     <AppShell>
-      <PageHeader title="Claims" description="Search, filter, and monitor every accident assistance case from first report through settlement or closure." />
-      <SearchFilterBar searchPlaceholder="Search by claim no, customer, vehicle no, or processor" filterLabel="Claim status" />
-      <Card>
-        <div className="overflow-hidden rounded-2xl border border-slate-200">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Claim no</th><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Vehicle</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Priority</th><th className="px-4 py-3">Owner</th><th className="px-4 py-3 text-right">Estimate</th></tr></thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {sampleClaims.map((claim, index) => <tr className="hover:bg-slate-50" key={claim.claimNo}><td className="px-4 py-4"><Link href={`/claims/${index + 1}`} className="font-semibold text-navy-700">{claim.claimNo}</Link><p className="text-xs text-slate-500">Open for {claim.age}</p></td><td className="px-4 py-4">{claim.customer}</td><td className="px-4 py-4 font-mono text-xs">{claim.vehicle}</td><td className="px-4 py-4"><StatusBadge status={claim.status} /></td><td className="px-4 py-4"><PriorityBadge priority={claim.priority} /></td><td className="px-4 py-4">{claim.owner}</td><td className="px-4 py-4 text-right font-semibold">{claim.amount}</td></tr>)}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div className="mt-4"><EmptyState className="hidden" title="No claims match this filter" description="Adjust the search text, status, or priority filters to find other claim files." /></div>
-      </Card>
+      <PageHeader title="Claims" description="Track accident assistance cases from intake through survey, repair, insurer approval, and settlement." />
+      <SearchFilterBar searchPlaceholder="Search claims by number, customer, vehicle, insurer, or assignee" filterLabel="Claim status" />
+      {error ? <DataError message={error.message} /> : <DataTable rows={data ?? []} emptyTitle="No claims found" emptyDescription="Create real claim records in Supabase; demo claim data is no longer shown on this protected page." columns={[
+        { header: "Claim", cell: (claim) => <Link href={`/claims/${claim.id}`} className="font-semibold text-navy-700">{claim.claim_no}</Link> },
+        { header: "Customer", cell: (claim) => claim.customers?.company_name ?? claim.customers?.contact_name ?? "—" },
+        { header: "Vehicle", cell: (claim) => <span className="font-mono text-xs">{claim.vehicles?.vehicle_no ?? "—"}</span> },
+        { header: "Status", cell: (claim) => <StatusBadge status={claim.current_status} /> },
+        { header: "Assignee", cell: (claim) => claim.assignee?.full_name ?? "Unassigned" },
+        { header: "Estimated loss", cell: (claim) => currency(claim.estimated_loss) },
+        { header: "Settlement", cell: (claim) => currency(claim.settlement_amount) }
+      ]} />}
     </AppShell>
   );
 }
