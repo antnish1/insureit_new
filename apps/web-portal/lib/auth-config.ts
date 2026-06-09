@@ -1,0 +1,20 @@
+export const allowedAdminRoles = ["super_admin", "admin", "manager", "claim_processor", "field_executive"] as const;
+export type AllowedAdminRole = (typeof allowedAdminRoles)[number];
+
+export const accessTokenCookie = "claimbridge-access-token";
+export const refreshTokenCookie = "claimbridge-refresh-token";
+
+export type Profile = {
+  id: string;
+  full_name: string;
+  role: string;
+  is_active: boolean;
+};
+
+export function isAllowedAdminRole(role: string | null | undefined): role is AllowedAdminRole {
+  return Boolean(role && allowedAdminRoles.includes(role as AllowedAdminRole));
+}
+
+export function isAuthorizedProfile(profile: Profile | null) {
+  return Boolean(profile?.is_active && isAllowedAdminRole(profile.role));
+}

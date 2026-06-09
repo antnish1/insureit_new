@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { LoginForm } from "@/components/login-form";
 
 export default function LoginPage() {
@@ -9,7 +10,9 @@ export default function LoginPage() {
           <h1 className="mt-3 text-3xl font-bold text-navy-900">Admin sign in</h1>
           <p className="mt-2 text-sm text-slate-600">Access the secure claim assistance operations portal.</p>
         </div>
-        <LoginForm />
+        <Suspense fallback={<p className="text-sm text-slate-500">Loading secure sign-in...</p>}>
+          <LoginForm />
+        </Suspense>
         <p className="mt-6 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">Frontend authentication uses only the Supabase anon key. Service role credentials must remain server-side only.</p>
       </div>
     </main>

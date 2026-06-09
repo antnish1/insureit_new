@@ -1,13 +1,14 @@
+import { allowedAdminRoles } from "@/lib/auth-config";
+import { DataError, DataTable } from "@/components/record-list";
 import { AppShell, Card, PageHeader } from "@/components/shell";
-import { EmptyState, SearchFilterBar, StatusBadge } from "@/components/ui";
+import { SearchFilterBar, StatusBadge } from "@/components/ui";
+import { createServerSupabaseClient } from "@/lib/auth-server";
 
-const roles = ["super_admin", "admin", "manager", "claim_processor", "field_executive", "customer"];
-const users = [
-  { name: "Asha Mehta", email: "asha@example.com", role: "manager", status: "Active" },
-  { name: "Ravi Shah", email: "ravi@example.com", role: "claim_processor", status: "Active" },
-  { name: "Neha Rao", email: "neha@example.com", role: "field_executive", status: "Active" }
-];
+type ProfileRow = { id: string; full_name: string; role: string; phone: string | null; is_active: boolean };
 
-export default function UsersPage() {
-  return <AppShell><PageHeader title="User management" description="Manage portal access, Supabase Auth profiles, and role-based access controls." /><SearchFilterBar searchPlaceholder="Search users by name, email, role, or status" filterLabel="User status" /><div className="grid gap-6 xl:grid-cols-3"><Card className="xl:col-span-2"><div className="divide-y divide-slate-100">{users.map((user) => <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between" key={user.email}><div><p className="font-semibold text-navy-900">{user.name}</p><p className="text-sm text-slate-500">{user.email} · {user.role}</p></div><StatusBadge status={user.status} /></div>)}</div><div className="mt-4"><EmptyState className="hidden" title="No users match the current filters" description="Clear filters or invite a new operations user." /></div></Card><Card><h3 className="text-lg font-semibold text-navy-900">Invite user</h3><div className="mt-4 grid gap-4"><div className="grid gap-2"><label>Invite email</label><input placeholder="user@example.com" /></div><div className="grid gap-2"><label>Role</label><select>{roles.map((role) => <option key={role}>{role}</option>)}</select></div></div><button className="mt-6 w-full rounded-xl bg-navy-700 px-5 py-2.5 text-sm font-semibold text-white" type="button">Prepare invite</button></Card></div></AppShell>;
+export default async function UsersPage() {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase.from("profiles").select("id, full_name, role, phone, is_active").order("created_at", { ascending: false }).returns<ProfileRow[]>();
+
+  return <AppShell><PageHeader title="User management" description="Manage portal access, Supabase Auth profiles, and role-based access controls." /><SearchFilterBar searchPlaceholder="Search users by name, email, role, or status" filterLabel="User status" /><div className="grid gap-6 xl:grid-cols-3"><div className="xl:col-span-2">{error ? <DataError message={error.message} /> : <DataTable rows={data ?? []} emptyTitle="No profiles found" emptyDescription="Create a Supabase Auth user and matching profiles row to grant access." columns={[{ header: "Name", cell: (user) => <p className="font-semibold text-navy-900">{user.full_name}</p> }, { header: "Role", cell: (user) => user.role }, { header: "Phone", cell: (user) => user.phone ?? "—" }, { header: "Status", cell: (user) => <StatusBadge status={user.is_active ? "Active" : "Closed"} /> }]} />}</div><Card><h3 className="text-lg font-semibold text-navy-900">Allowed admin roles</h3><ul className="mt-4 space-y-2 text-sm text-slate-600">{allowedAdminRoles.map((role) => <li className="rounded-xl bg-slate-50 px-3 py-2" key={role}>{role}</li>)}</ul><p className="mt-4 text-xs text-slate-500">Invite users in Supabase Auth, then create or update their profiles row with one of these roles.</p></Card></div></AppShell>;
 }
