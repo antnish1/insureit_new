@@ -16,6 +16,9 @@ const config: Config = {
       },
       boxShadow: {
         soft: "0 18px 45px rgba(8, 35, 61, 0.08)"
+      },
+      spacing: {
+        76: "19rem"
       }
     }
   },
