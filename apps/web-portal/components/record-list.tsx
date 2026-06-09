@@ -6,8 +6,8 @@ export function DataError({ message }: { message?: string }) {
   return (
     <Card>
       <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
-        <p className="font-semibold">Unable to load live Supabase data</p>
-        <p className="mt-1 text-red-600">{message ?? "Check the table permissions, RLS policies, and environment variables."}</p>
+        <p className="font-semibold">Unable to load records</p>
+        <p className="mt-1 text-red-600">{message ?? "Please refresh the page or contact an administrator if the issue continues."}</p>
       </div>
     </Card>
   );

@@ -3,7 +3,7 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { allowedAdminRoles, isAllowedAdminRole } from "@/lib/auth-config";
+import { isAllowedAdminRole } from "@/lib/auth-config";
 import { createClient } from "@/lib/supabase";
 
 export function LoginForm() {
@@ -24,7 +24,7 @@ export function LoginForm() {
 
     if (error || !data.session || !data.user) {
       setIsSubmitting(false);
-      setMessage(error?.message ?? "Supabase did not return a valid session.");
+      setMessage(error?.message ?? "The sign-in service did not return a valid session.");
       return;
     }
 
@@ -72,16 +72,16 @@ export function LoginForm() {
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="grid gap-2">
         <label htmlFor="email">Email</label>
-        <input id="email" type="email" placeholder="admin@claimbridge.example" value={email} onChange={(event) => setEmail(event.target.value)} required />
+        <input id="email" type="email" placeholder="admin@insureit.example" value={email} onChange={(event) => setEmail(event.target.value)} required />
       </div>
       <div className="grid gap-2">
         <label htmlFor="password">Password</label>
         <input id="password" type="password" placeholder="••••••••" value={password} onChange={(event) => setPassword(event.target.value)} required />
       </div>
       {message ? <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{message}</p> : null}
-      <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">Allowed roles: {allowedAdminRoles.join(", ")}.</p>
+      <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">Portal access is limited to authorized team members.</p>
       <button className="w-full rounded-xl bg-navy-700 px-4 py-3 text-sm font-semibold text-white hover:bg-navy-900 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Signing in..." : "Sign in with Supabase Auth"}
+        {isSubmitting ? "Signing in..." : "Sign in"}
       </button>
     </form>
   );

@@ -22,9 +22,9 @@ export default async function DocumentsPage() {
 
   return (
     <AppShell>
-      <PageHeader title="Document verification" description="Review private claim documents uploaded to the protected Supabase storage bucket." />
+      <PageHeader title="Document verification" description="Review claim documents, supporting evidence, and verification status for active cases." />
       <SearchFilterBar searchPlaceholder="Search documents by claim no, customer, document type, or status" filterLabel="Document status" />
-      {error ? <DataError message={error.message} /> : <DataTable rows={data ?? []} emptyTitle="No documents awaiting review" emptyDescription="When private files are uploaded to a claim, verification tasks will appear here." columns={[
+      {error ? <DataError message={error.message} /> : <DataTable rows={data ?? []} emptyTitle="No documents are pending for review" emptyDescription="No documents are pending for review." columns={[
         { header: "Document", cell: (doc) => <><p className="font-semibold text-navy-900">{doc.document_type}</p><p className="text-xs text-slate-500">{doc.file_name}</p></> },
         { header: "Claim", cell: (doc) => doc.claims?.claim_no ?? "—" },
         { header: "Customer", cell: (doc) => doc.customers?.company_name ?? doc.customers?.contact_name ?? "—" },

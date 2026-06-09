@@ -1,6 +1,6 @@
 # Database Schema
 
-The initial schema is implemented in `supabase/migrations/202606090001_initial_claimbridge_schema.sql`.
+The initial schema is implemented in `supabase/migrations/202606090001_initial_insureit_schema.sql`.
 
 ## Tables
 

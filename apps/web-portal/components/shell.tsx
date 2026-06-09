@@ -9,16 +9,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-76 border-r border-white/10 bg-navy-900 text-white shadow-2xl lg:block">
         <div className="border-b border-white/10 px-6 py-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-lg font-black text-navy-900">CB</div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-lg font-black text-navy-900">II</div>
             <div>
-              <div className="text-2xl font-bold tracking-tight">ClaimBridge CV</div>
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-green-300">Claims command center</p>
+              <div className="text-2xl font-bold tracking-tight">InsureIt</div>
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-green-300">Claim assistance portal</p>
             </div>
           </div>
           <div className="mt-5 rounded-2xl bg-white/10 p-4 ring-1 ring-white/10">
-            <p className="text-xs text-navy-100">Authenticated workspace</p>
-            <p className="mt-2 text-sm font-semibold text-white">Live Supabase records only</p>
-            <p className="mt-1 text-xs leading-5 text-navy-100">Demo customer and claim metrics are not displayed.</p>
+            <p className="text-xs text-navy-100">Team workspace</p>
+            <p className="mt-2 text-sm font-semibold text-white">Customer and claim operations</p>
+            <p className="mt-1 text-xs leading-5 text-navy-100">Monitor assistance activity, documents, and follow-ups from a single workspace.</p>
           </div>
         </div>
         <nav className="space-y-1 px-4 py-5">
@@ -31,8 +31,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
         <div className="absolute bottom-0 left-0 right-0 p-4">
           <div className="rounded-2xl bg-white/10 p-4 text-sm ring-1 ring-white/10">
-            <p className="font-semibold text-white">Secure document vault</p>
-            <p className="mt-1 text-xs leading-5 text-navy-100">Private Supabase storage for claim files and evidence.</p>
+            <p className="font-semibold text-white">Document review</p>
+            <p className="mt-1 text-xs leading-5 text-navy-100">Organize claim files, evidence, and verification activity.</p>
             <div className="mt-4"><LogoutButton /></div>
           </div>
         </div>
@@ -42,13 +42,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-success">Admin Portal</p>
-              <h1 className="text-xl font-semibold text-navy-900">Commercial vehicle claim operations</h1>
+              <h1 className="text-xl font-semibold text-navy-900">Commercial vehicle claim assistance</h1>
             </div>
             <div className="flex items-center gap-3">
-              <span className="hidden rounded-full bg-green-50 px-3 py-1 text-sm font-medium text-green-700 ring-1 ring-green-200 sm:inline-flex">RLS protected</span>
-              <span className="hidden rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600 sm:inline-flex">Live workspace</span>
+              <span className="hidden rounded-full bg-green-50 px-3 py-1 text-sm font-medium text-green-700 ring-1 ring-green-200 sm:inline-flex">Authorized access</span>
+              <span className="hidden rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600 sm:inline-flex">Operations workspace</span>
               <LogoutButton />
-              <div className="h-10 w-10 rounded-full bg-navy-700 text-center text-sm font-bold leading-10 text-white">CB</div>
+              <div className="h-10 w-10 rounded-full bg-navy-700 text-center text-sm font-bold leading-10 text-white">II</div>
             </div>
           </div>
           <nav className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
@@ -69,7 +69,7 @@ export function PageHeader({ title, description, action }: { title: string; desc
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-green-700">ClaimBridge CV</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-green-700">InsureIt</p>
         <h2 className="mt-2 text-2xl font-bold tracking-tight text-navy-900 md:text-3xl">{title}</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{description}</p>
       </div>

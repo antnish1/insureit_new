@@ -1,16 +1,16 @@
-# ClaimBridge CV
+# InsureIt
 
-ClaimBridge CV is the first version of a commercial vehicle insurance claim assistance platform. This release includes the Supabase database foundation and a protected Next.js admin web portal. It does **not** include a customer mobile app.
+InsureIt is a commercial vehicle insurance claim assistance platform for managing customers, vehicles, policies, accident claim cases, supporting documents, follow-up tasks, reporting, and staff access in a secure admin portal.
 
 ## What is included
 
-- `apps/web-portal` — Next.js, TypeScript, Tailwind CSS, Supabase Auth email/password login, middleware route protection, and role-gated admin pages.
-- `supabase/migrations` — PostgreSQL schema, enums, indexes, RLS policies, Auth profile trigger, and private storage bucket setup.
-- `supabase/functions` — Reserved for future Supabase Edge Functions.
+- `apps/web-portal` — Next.js, TypeScript, Tailwind CSS, email/password authentication, route protection, and role-gated admin pages.
+- `supabase/migrations` — PostgreSQL schema, enums, indexes, Row Level Security policies, Auth profile trigger, and private storage bucket setup.
+- `supabase/functions` — Reserved for future trusted server workflows.
 - `docs` — Business flow, database schema, and security notes.
 - `.env.example` — Environment variable template.
 
-## Exact npm install command
+## Install dependencies
 
 Run this from the repository root:
 
@@ -18,7 +18,7 @@ Run this from the repository root:
 npm install
 ```
 
-## Exact command to run the admin portal locally
+## Run the admin portal locally
 
 Run this from the repository root after installing dependencies and creating `apps/web-portal/.env.local`:
 
@@ -30,7 +30,7 @@ The portal is available at `http://localhost:3000`. Opening `/` redirects unauth
 
 ## Required environment variables
 
-The web portal uses only these public Supabase variables in browser/frontend code:
+The web portal uses these browser-safe Supabase variables:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
@@ -39,21 +39,21 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-public-anon-key
 
 Do **not** add `SUPABASE_SERVICE_ROLE_KEY` to frontend code, Vercel variables for the browser app, or any `NEXT_PUBLIC_` variable. The current portal does not require the service role key.
 
-## Browser-only Supabase Auth setup
+## Supabase Auth setup
 
-Use the Supabase dashboard; no CLI is required for the login setup.
+Use the Supabase dashboard; no CLI is required for login setup.
 
 1. Open your Supabase project in the browser.
 2. Go to **Authentication → Providers → Email**.
 3. Enable the **Email** provider.
-4. For the simplest first admin login, enable email/password sign-ins. If email confirmation is enabled, make sure you can confirm the first admin user's email before testing Vercel.
+4. Enable email/password sign-ins. If email confirmation is enabled, confirm the first administrator's email before testing the deployed portal.
 5. Go to **Authentication → URL Configuration**.
-6. Add your deployed Vercel URL to the allowed site/redirect URLs, for example:
+6. Add your deployed Vercel URL to the allowed site and redirect URLs, for example:
    - `https://your-vercel-app.vercel.app`
    - `https://your-vercel-app.vercel.app/login`
 7. Confirm the `profiles` table exists from the migration and has Row Level Security policies enabled.
 
-## Browser-only Vercel environment variable setup
+## Vercel environment variable setup
 
 1. Open the Vercel project in the browser.
 2. Go to **Settings → Environment Variables**.
@@ -63,7 +63,7 @@ Use the Supabase dashboard; no CLI is required for the login setup.
 4. Do not add `SUPABASE_SERVICE_ROLE_KEY` for this frontend portal.
 5. Redeploy the site after saving the variables.
 
-## Creating the first admin user in the browser
+## Creating the first admin user
 
 1. In Supabase, go to **Authentication → Users**.
 2. Click **Add user**.
@@ -89,9 +89,9 @@ The portal allows only active profiles with one of these roles: `super_admin`, `
 
 1. Open the deployed root URL, for example `https://your-vercel-app.vercel.app/`.
 2. Confirm it redirects to `/login` when no user is logged in.
-3. Sign in with the Supabase Auth email/password admin user.
+3. Sign in with the email/password administrator user.
 4. Confirm the app redirects to `/dashboard`.
-5. Open each protected route directly in a private/incognito window and confirm it redirects to `/login`:
+5. Open each restricted route directly in a private/incognito window and confirm it redirects to `/login`:
    - `/dashboard`
    - `/customers`
    - `/vehicles`
@@ -102,17 +102,17 @@ The portal allows only active profiles with one of these roles: `super_admin`, `
    - `/tasks`
    - `/reports`
    - `/users`
-6. Test an Auth user with no `profiles` row, inactive profile, or invalid role and confirm the app shows the access denied page.
-7. Use the sidebar/header **Logout** button and confirm a protected URL redirects back to `/login` after logout.
+6. Test a user with no `profiles` row, inactive profile, or invalid role and confirm the app shows the access denied page.
+7. Use the sidebar/header **Logout** button and confirm a restricted URL redirects back to `/login` after logout.
 
 ## Security principles
 
 - The frontend may use only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 - Never put the Supabase `service_role` key in frontend code or a `NEXT_PUBLIC_` variable.
-- Admin routes are protected by Next.js middleware and Supabase Auth token validation.
+- Admin routes require a valid authenticated session.
 - Admin authorization is validated against the `profiles` table, not hard-coded users.
 - Claim documents are stored in a private bucket named `claim-documents`.
-- Access to sensitive tables is controlled with Supabase Row Level Security.
+- Access to sensitive records is controlled with Supabase Row Level Security.
 - Important system changes should be recorded in `audit_logs`.
 
 ## Deployment notes
@@ -120,4 +120,4 @@ The portal allows only active profiles with one of these roles: `super_admin`, `
 - Deploy `apps/web-portal` to Vercel or another Next.js host.
 - Configure production environment variables in the hosting provider.
 - Run Supabase migrations against production before enabling production traffic.
-- Add server-side actions or Supabase Edge Functions later for privileged workflows that require the service role key.
+- Keep privileged workflows on trusted server-side infrastructure when they require the service role key.

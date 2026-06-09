@@ -108,7 +108,7 @@ export function LoadingState({ label = "Loading claim workspace...", className =
   );
 }
 
-export function ErrorState({ title = "Unable to load data", description = "Please refresh or try again after checking your Supabase connection.", className = "" }: { title?: string; description?: string; className?: string }) {
+export function ErrorState({ title = "Unable to load data", description = "Please refresh or try again. Contact an administrator if the issue continues.", className = "" }: { title?: string; description?: string; className?: string }) {
   return (
     <div className={`rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700 ${className}`}>
       <p className="font-semibold">{title}</p>
