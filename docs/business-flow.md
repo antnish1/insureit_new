@@ -1,6 +1,6 @@
 # Business Flow
 
-ClaimBridge CV is a third-party commercial vehicle insurance claim assistance workflow. The company is not an insurer. It helps customers navigate accident reporting, document preparation, claim intimation, inspection coordination, repairs, and settlement follow-up.
+InsureIt supports commercial vehicle insurance claim assistance operations. The company is not an insurer; it helps customers navigate accident reporting, document preparation, claim intimation, inspection coordination, repairs, and settlement follow-up.
 
 ## Core workflow
 
@@ -39,4 +39,4 @@ ClaimBridge CV is a third-party commercial vehicle insurance claim assistance wo
 - **manager** — Operations supervision and reporting.
 - **claim_processor** — Claim file handling, status updates, and document review.
 - **field_executive** — On-ground follow-up and document coordination.
-- **customer** — Customer-facing access planned for later; the mobile app is intentionally not included in this version.
+- **customer** — Customer-facing access role for customer-owned records.

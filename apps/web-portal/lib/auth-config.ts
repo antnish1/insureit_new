@@ -1,8 +1,8 @@
 export const allowedAdminRoles = ["super_admin", "admin", "manager", "claim_processor", "field_executive"] as const;
 export type AllowedAdminRole = (typeof allowedAdminRoles)[number];
 
-export const accessTokenCookie = "claimbridge-access-token";
-export const refreshTokenCookie = "claimbridge-refresh-token";
+export const accessTokenCookie = "insureit-access-token";
+export const refreshTokenCookie = "insureit-refresh-token";
 
 export type Profile = {
   id: string;
