@@ -1,9 +1,10 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Link, LinkProps, useRouter } from 'expo-router';
-import { PropsWithChildren } from 'react';
+import { Link, LinkProps, usePathname, useRouter } from 'expo-router';
+import { PropsWithChildren, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, PressableProps, ScrollView, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { signOut } from '@/lib/auth';
+import { getCurrentSession, getProfile } from '@/lib/auth';
 
 export const colors = {
   navy: '#0B1F3A',
@@ -18,22 +19,59 @@ export const colors = {
 
 export function Screen({ title, subtitle, children, showLogout = false }: PropsWithChildren<{ title: string; subtitle?: string; showLogout?: boolean }>) {
   const router = useRouter();
+  const pathname = usePathname();
+  const [profileInitial, setProfileInitial] = useState('I');
+  const showProfile = pathname.startsWith('/customer') || pathname.startsWith('/it') || pathname.startsWith('/staff');
+  void showLogout;
+
+  useEffect(() => {
+    let active = true;
+    async function loadProfileInitial() {
+      try {
+        const session = await getCurrentSession();
+        if (!session?.user || !active) return;
+        const profile = await getProfile(session.user.id);
+        if (!active) return;
+        setProfileInitial(initialFor(profile?.full_name ?? session.user.email ?? 'InsureIT'));
+      } catch {
+        if (active) setProfileInitial('I');
+      }
+    }
+    void loadProfileInitial();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function openProfile() {
+    if (pathname.startsWith('/customer')) return router.push('/customer/profile');
+    if (pathname.startsWith('/it')) return router.push('/it/profile');
+    if (pathname.startsWith('/staff')) return router.push('/staff/profile');
+    return router.push('/login');
+  }
+
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.screenContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      <View style={styles.brandRow}>
-        <View style={styles.brandBadge}>
-          <MaterialCommunityIcons name="shield-check" size={21} color={colors.navy} />
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <ScrollView style={styles.screen} contentContainerStyle={styles.screenContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <View style={styles.brandRow}>
+          <View style={styles.brandBadge}>
+            <MaterialCommunityIcons name="shield-check" size={21} color={colors.navy} />
+          </View>
+          <Text style={styles.brand}>InsureIT</Text>
+          {showProfile ? (
+            <Pressable accessibilityRole="button" onPress={openProfile} style={styles.avatar}>
+              <Text style={styles.avatarText}>{profileInitial}</Text>
+            </Pressable>
+          ) : null}
         </View>
-        <Text style={styles.brand}>InsureIT</Text>
-      </View>
-      <View style={styles.header}>
-        <View style={styles.headerGlow} />
-        <Text style={styles.title}>{title}</Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-      </View>
-      {showLogout ? <Button label="Sign out" variant="secondary" onPress={() => void signOut(router)} /> : null}
-      {children}
-    </ScrollView>
+        <View style={styles.header}>
+          <View style={styles.headerGlow} />
+          <Text style={styles.title}>{title}</Text>
+          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        </View>
+        {children}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -115,12 +153,19 @@ export function NavLink({ href, label }: { href: LinkProps['href']; label: strin
   );
 }
 
+function initialFor(name: string) {
+  return name.trim().charAt(0).toUpperCase() || 'I';
+}
+
 export const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.lightGrey },
-  screenContent: { padding: 16, paddingTop: 18, paddingBottom: 40 },
+  safeArea: { flex: 1, backgroundColor: colors.lightGrey },
+  screenContent: { paddingHorizontal: 16, paddingBottom: 40 },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
   brandBadge: { width: 38, height: 38, borderRadius: 13, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
   brand: { flex: 1, color: colors.navy, fontSize: 22, fontWeight: '900' },
+  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: colors.white, fontSize: 16, fontWeight: '900' },
   header: { minHeight: 128, borderRadius: 26, backgroundColor: colors.navy, padding: 18, marginBottom: 16, overflow: 'hidden', shadowColor: colors.navy, shadowOpacity: 0.16, shadowRadius: 16, elevation: 3 },
   headerGlow: { position: 'absolute', width: 154, height: 154, borderRadius: 77, right: -44, top: -58, backgroundColor: 'rgba(24,160,88,0.28)' },
   title: { color: colors.white, fontSize: 28, fontWeight: '900', lineHeight: 34 },

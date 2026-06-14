@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button, Card, LoadingState, Message, Screen, TextField } from '@/components/ui';
-import { getCurrentSession, getProfile, isValidProfile, signOut } from '@/lib/auth';
+import { getCurrentSession, getProfile, isValidProfile } from '@/lib/auth';
 import { appRoles, canManageUsers, designationOptions, roleLabels } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import type { AppRole, Profile } from '@/lib/types';
@@ -341,7 +341,6 @@ export default function ItUsersScreen() {
       </Card>
 
       <Button label="Back to dashboard" variant="secondary" onPress={() => router.replace('/it/dashboard')} />
-      <Button label="Sign out" variant="secondary" onPress={() => void signOut(router)} />
     </Screen>
   );
 }
