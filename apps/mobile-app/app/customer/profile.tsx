@@ -22,8 +22,8 @@ export default function ProfileScreen() {
       setProfile(nextProfile);
       setCustomer(await getCustomerForUser(session.user.id));
       if (nextProfile?.reporting_manager_id) {
-        const { data } = await supabase.from('profiles').select('full_name').eq('id', nextProfile.reporting_manager_id).maybeSingle<{ full_name: string }>();
-        setManagerName(data?.full_name ?? null);
+        const { data } = await supabase.functions.invoke<{ manager_name: string | null }>('profile-context', { method: 'GET' });
+        setManagerName(data?.manager_name ?? null);
       }
       setLoading(false);
     }
@@ -37,7 +37,7 @@ export default function ProfileScreen() {
       <Card>
         <Row label="Name" value={customer?.contact_name ?? profile?.full_name} />
         <Row label="Role" value={profile?.role ? roleLabels[profile.role] : null} />
-        <Row label="Reporting manager" value={managerName ?? 'Not assigned'} />
+        <Row label="Reporting manager" value={managerName ?? (profile?.reporting_manager_id ? 'Assigned manager' : 'Not assigned')} />
         <Row label="Company" value={customer?.company_name} />
         <Row label="Phone" value={customer?.phone ?? profile?.phone} />
         <Row label="Email" value={customer?.email ?? profile?.email} />

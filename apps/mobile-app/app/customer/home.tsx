@@ -99,15 +99,18 @@ export default function CustomerHomeScreen() {
   }, [router]);
 
   const displayName = customer?.contact_name ?? profile?.full_name ?? 'Customer';
-  const latestActiveClaim = useMemo(() => claims.find((claim) => activeClaimStatuses.has(claim.current_status)), [claims]);
-  const activeClaimVehicle = latestActiveClaim ? vehicles.find((vehicle) => vehicle.id === latestActiveClaim.vehicle_id) : null;
-  const activeClaimView: ActiveClaimView | null = latestActiveClaim ? {
-    id: latestActiveClaim.id,
-    claimNo: latestActiveClaim.claim_no,
-    vehicleNo: activeClaimVehicle?.vehicle_no ?? 'Not available',
-    status: latestActiveClaim.current_status,
-    lastUpdated: formatDateTime(latestActiveClaim.updated_at ?? latestActiveClaim.created_at),
-  } : null;
+  const activeClaims = useMemo(() => claims.filter((claim) => activeClaimStatuses.has(claim.current_status)), [claims]);
+  const latestActiveClaim = activeClaims[0];
+  const activeClaimViews: ActiveClaimView[] = activeClaims.map((claim) => {
+    const vehicle = vehicles.find((item) => item.id === claim.vehicle_id);
+    return {
+      id: claim.id,
+      claimNo: claim.claim_no,
+      vehicleNo: vehicle?.vehicle_no ?? 'Not available',
+      status: claim.current_status,
+      lastUpdated: formatDateTime(claim.updated_at ?? claim.created_at),
+    };
+  });
   const rejectedDocuments = documents.filter((document) => document.verification_status === 'rejected');
   const needsDocuments = latestActiveClaim?.current_status === 'Documents Pending' || rejectedDocuments.length > 0;
   const expiringPolicy = useMemo(() => findExpiringPolicy(policies), [policies]);
@@ -118,11 +121,13 @@ export default function CustomerHomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.fixedHeader}>
+        <DashboardHeader name={displayName} onHome={() => router.replace('/customer/home')} onProfile={() => router.push('/customer/profile')} />
+      </View>
       <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <DashboardShell>
-          <DashboardHeader name={displayName} onProfile={() => router.push('/customer/profile')} />
           <AccidentHeroCard onPress={() => router.push('/customer/report-accident')} />
-          <ActiveClaimCard claim={activeClaimView} onOpen={() => activeClaimView && router.push({ pathname: '/customer/claim-detail', params: { id: activeClaimView.id } })} />
+          <ActiveClaimCard claims={activeClaimViews} onOpen={(claim) => claim && router.push({ pathname: '/customer/claim-detail', params: { id: claim.id } })} />
           <ActionRequiredCard required={needsDocuments} count={rejectedDocuments.length || (needsDocuments ? 1 : 0)} onUpload={() => router.push('/customer/upload-documents')} />
           <QuickActionGrid actions={[
             { title: 'My Claims', subtitle: 'Track every claim', icon: 'file-document-check-outline', tone: '#E8F1FB', onPress: () => router.push('/customer/claims') },
@@ -132,17 +137,24 @@ export default function CustomerHomeScreen() {
             { title: 'Support', subtitle: 'Get assistance', icon: 'headset', tone: '#E8F1FB', onPress: () => router.push('/customer/support') },
             { title: 'Reminders', subtitle: 'Policy alerts', icon: 'bell-outline', tone: '#EAF8F0', onPress: () => router.push('/customer/policies') },
           ]} />
-          <SummaryCards counts={counts} />
+          <SummaryCards
+            counts={counts}
+            onVehicles={() => router.push('/customer/vehicles')}
+            onPolicies={() => router.push('/customer/policies')}
+            onClaims={() => router.push('/customer/claims')}
+          />
           <PolicyReminderCard vehicleNo={expiringVehicle?.vehicle_no} expiry={expiringPolicy ? formatDate(expiringPolicy.end_date) : undefined} onView={() => router.push('/customer/policies')} />
           <SupportCard onSupport={() => router.push('/customer/support')} />
-          <BottomNavigation
-            onClaims={() => router.push('/customer/claims')}
-            onVehicles={() => router.push('/customer/vehicles')}
-            onDocuments={() => router.push('/customer/upload-documents')}
-            onSupport={() => router.push('/customer/support')}
-          />
         </DashboardShell>
       </ScrollView>
+      <View style={styles.bottomNavWrap}>
+        <BottomNavigation
+          onClaims={() => router.push('/customer/claims')}
+          onVehicles={() => router.push('/customer/vehicles')}
+          onDocuments={() => router.push('/customer/upload-documents')}
+          onSupport={() => router.push('/customer/support')}
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -212,7 +224,9 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#EEF2F6' },
   screen: { flex: 1, backgroundColor: '#EEF2F6' },
-  content: { paddingHorizontal: 16, paddingBottom: 26 },
+  fixedHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20, paddingHorizontal: 16, paddingTop: 60, backgroundColor: '#EEF2F6' },
+  content: { paddingHorizontal: 16, paddingTop: 156, paddingBottom: 100 },
+  bottomNavWrap: { position: 'absolute', left: 10, right: 10, bottom: 8 },
   loadingScreen: { flex: 1, backgroundColor: '#EEF2F6', justifyContent: 'center' },
   errorCard: { width: '90%', alignSelf: 'center', backgroundColor: '#FFFFFF', borderRadius: 22, padding: 18, borderWidth: 1, borderColor: '#D8DEE8' },
   errorTitle: { color: '#0B1F3A', fontSize: 20, fontWeight: '900', marginBottom: 8 },

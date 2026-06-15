@@ -23,6 +23,7 @@ const appRoles = new Set([
 ]);
 
 const userManagementRoles = new Set(["it_super_user", "admin", "super_admin"]);
+const customerCreatorRoles = new Set(["manager", "it_super_user", "admin", "super_admin"]);
 
 type CreateUserPayload = {
   email?: string;
@@ -86,7 +87,7 @@ Deno.serve(async (request) => {
 
   const { data: callerProfile, error: callerError } = await serviceClient
     .from("profiles")
-    .select("id, role, is_active")
+    .select("id, role, is_active, reporting_manager_id")
     .eq("id", authUser.user.id)
     .maybeSingle();
 
@@ -95,15 +96,16 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: "Could not verify caller." }, 500);
   }
 
-  if (!callerProfile?.is_active || !userManagementRoles.has(String(callerProfile.role))) {
-    return jsonResponse({ error: "You do not have permission to create users." }, 403);
-  }
-
   const payload = (await request.json().catch(() => null)) as CreateUserPayload | null;
   const email = payload?.email?.trim().toLowerCase();
   const password = payload?.password ?? "";
   const fullName = payload?.full_name?.trim();
   const role = payload?.role?.trim();
+
+  const callerRole = String(callerProfile?.role ?? "");
+  if (!callerProfile?.is_active || (!userManagementRoles.has(callerRole) && !(role === "customer" && customerCreatorRoles.has(callerRole)))) {
+    return jsonResponse({ error: "You do not have permission to create this user." }, 403);
+  }
 
   if (!email || !password || !fullName || !role || !appRoles.has(role)) {
     return jsonResponse({ error: "Email, password, full name, and valid role are required." }, 400);
@@ -139,6 +141,19 @@ Deno.serve(async (request) => {
 
     if (!assignedAgent?.is_active || String(assignedAgent.role) !== "agent") {
       return jsonResponse({ error: "Customer users must be assigned to an active Agent." }, 400);
+    }
+
+    if (callerRole === "manager") {
+      const rootUserId = callerProfile.reporting_manager_id ?? authUser.user.id;
+      const { data: downline, error: downlineError } = await serviceClient.rpc("get_user_downline", { root_user_id: rootUserId });
+      if (downlineError) {
+        console.error("create-user manager downline lookup failed", downlineError);
+        return jsonResponse({ error: "Could not verify assigned agent hierarchy." }, 500);
+      }
+      const canAssignAgent = Array.isArray(downline) && downline.some((row: { profile_id: string }) => row.profile_id === assignedAgentId);
+      if (!canAssignAgent) {
+        return jsonResponse({ error: "Customer users must be assigned to an Agent in your reporting hierarchy." }, 403);
+      }
     }
 
     reportingManagerId = assignedAgentId;

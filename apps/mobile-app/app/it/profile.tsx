@@ -20,8 +20,8 @@ export default function ItProfileScreen() {
       const nextProfile = await getProfile(session.user.id);
       setProfile(nextProfile);
       if (nextProfile?.reporting_manager_id) {
-        const { data } = await supabase.from('profiles').select('full_name').eq('id', nextProfile.reporting_manager_id).maybeSingle<{ full_name: string }>();
-        setManagerName(data?.full_name ?? null);
+        const { data } = await supabase.functions.invoke<{ manager_name: string | null }>('profile-context', { method: 'GET' });
+        setManagerName(data?.manager_name ?? null);
       }
       setLoading(false);
     }
@@ -39,7 +39,7 @@ export default function ItProfileScreen() {
         <Row label="Employee code" value={profile?.employee_code} />
         <Row label="Department" value={profile?.department} />
         <Row label="Designation" value={profile?.designation} />
-        <Row label="Reporting manager" value={managerName ?? 'Not assigned'} />
+        <Row label="Reporting manager" value={managerName ?? (profile?.reporting_manager_id ? 'Assigned manager' : 'Not assigned')} />
         <Row label="Status" value={profile?.is_active ? 'Active' : 'Inactive'} />
       </Card>
       <Button label="Back to control center" variant="secondary" onPress={() => router.replace('/it/dashboard')} />

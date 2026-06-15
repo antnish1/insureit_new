@@ -1,15 +1,17 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { Card, LoadingState, NavLink, Row, Screen } from '@/components/ui';
+import { AppGrid, AppStatCard } from '@/components/design-system';
+import { LoadingState, Screen } from '@/components/ui';
 import { getCurrentSession, getProfile, isValidProfile } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-import type { Profile } from '@/lib/types';
+import type { Claim, Profile } from '@/lib/types';
 
 export default function StaffDashboardScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [counts, setCounts] = useState({ claims: 0, tasks: 0, documents: 0 });
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [documentsPending, setDocumentsPending] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,32 +21,37 @@ export default function StaffDashboardScreen() {
       const nextProfile = await getProfile(session.user.id);
       if (!isValidProfile(nextProfile) || nextProfile.role === 'customer') return router.replace('/access-denied');
       setProfile(nextProfile);
-      const [claims, tasks, documents] = await Promise.all([
-        supabase.from('claims').select('id', { count: 'exact', head: true }),
-        supabase.from('claim_tasks').select('id', { count: 'exact', head: true }).neq('status', 'completed'),
+      const [claimsResult, documentsResult] = await Promise.all([
+        supabase.from('claims').select('*').order('updated_at', { ascending: false }),
         supabase.from('claim_documents').select('id', { count: 'exact', head: true }).eq('verification_status', 'pending'),
       ]);
-      setCounts({ claims: claims.count ?? 0, tasks: tasks.count ?? 0, documents: documents.count ?? 0 });
+      setClaims(claimsResult.data ?? []);
+      setDocumentsPending(documentsResult.count ?? 0);
       setLoading(false);
     }
     void load();
   }, [router]);
 
+  const counts = useMemo(() => ({
+    total: claims.length,
+    open: claims.filter((claim) => !['Settled', 'Rejected', 'Closed'].includes(claim.current_status)).length,
+    approval: claims.filter((claim) => claim.current_status === 'Approval Pending').length,
+    repair: claims.filter((claim) => ['Repair Started', 'Repair Completed', 'Final Bill Submitted'].includes(claim.current_status)).length,
+    completed: claims.filter((claim) => ['Settled', 'Closed'].includes(claim.current_status)).length,
+  }), [claims]);
+
   if (loading) return <Screen title="Operations Desk" showLogout><LoadingState label="Opening operations desk" /></Screen>;
 
   return (
     <Screen title="Operations Desk" subtitle={profile?.full_name ? profile.full_name : undefined} showLogout>
-      <Card>
-        <Row label="Signed in role" value={profile?.role} />
-        <Row label="Open claim records" value={counts.claims} />
-        <Row label="Follow-up tasks" value={counts.tasks} />
-        <Row label="Documents for review" value={counts.documents} />
-      </Card>
-      <NavLink href="/staff/claims" label="Claims" />
-      <NavLink href="/staff/documents" label="Documents" />
-      <NavLink href="/staff/tasks" label="Follow-ups" />
-      <NavLink href="/staff/customers" label="Customers" />
-      <NavLink href="/staff/vehicles" label="Vehicles" />
+      <AppGrid>
+        <AppStatCard label="Total claims" value={counts.total} icon="file-document-outline" tone="info" onPress={() => router.push('/staff/claims')} />
+        <AppStatCard label="Open claims" value={counts.open} icon="progress-clock" tone="warning" onPress={() => router.push('/staff/claims')} />
+        <AppStatCard label="Docs pending" value={documentsPending} icon="file-alert-outline" tone="danger" onPress={() => router.push('/staff/documents')} />
+        <AppStatCard label="Approval" value={counts.approval} icon="shield-alert-outline" tone="warning" onPress={() => router.push('/staff/claims')} />
+        <AppStatCard label="Under repair" value={counts.repair} icon="wrench-outline" tone="info" onPress={() => router.push('/staff/claims')} />
+        <AppStatCard label="Completed" value={counts.completed} icon="check-decagram-outline" tone="success" onPress={() => router.push('/staff/claims')} />
+      </AppGrid>
     </Screen>
   );
 }

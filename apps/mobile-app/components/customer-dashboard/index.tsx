@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ReactNode, useEffect, useRef } from 'react';
-import { Animated, Pressable, PressableProps, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Animated, Pressable, PressableProps, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
 import type { Claim } from '@/lib/types';
 
@@ -41,14 +41,16 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   );
 }
 
-export function DashboardHeader({ name, onProfile }: { name: string; onProfile: () => void }) {
+export function DashboardHeader({ name, onProfile, onHome }: { name: string; onProfile: () => void; onHome?: () => void }) {
   return (
     <View style={styles.header}>
       <View style={styles.brandRow}>
-        <View style={styles.logoMark}>
-          <MaterialCommunityIcons name="shield-check" size={22} color="#0B1F3A" />
-        </View>
-        <Text style={styles.brandText}>InsureIT</Text>
+        <Pressable accessibilityRole="button" onPress={onHome} style={styles.brandHome}>
+          <View style={styles.logoMark}>
+            <MaterialCommunityIcons name="shield-check" size={22} color="#0B1F3A" />
+          </View>
+          <Text style={styles.brandText}>InsureIT</Text>
+        </Pressable>
         <Pressable accessibilityRole="button" style={styles.notificationButton}>
           <MaterialCommunityIcons name="bell-outline" size={21} color="#0B1F3A" />
         </Pressable>
@@ -90,46 +92,49 @@ export function AccidentHeroCard({ onPress }: { onPress: () => void }) {
   );
 }
 
-export function ActiveClaimCard({ claim, onOpen }: { claim: ActiveClaimView | null; onOpen: () => void }) {
+export function ActiveClaimCard({ claim, claims, onOpen }: { claim?: ActiveClaimView | null; claims?: ActiveClaimView[]; onOpen: (claim?: ActiveClaimView) => void }) {
+  const visibleClaims = claims ?? (claim ? [claim] : []);
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>Active Claim</Text>
-        {claim ? (
-          <AnimatedPressable onPress={onOpen} style={styles.textActionButton}>
-            <Text style={styles.textAction}>View Details</Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color="#0B63CE" />
-          </AnimatedPressable>
-        ) : null}
+        <Text style={styles.cardTitle}>Active Claims</Text>
+        {visibleClaims.length > 1 ? <Text style={styles.cardHint}>Swipe</Text> : null}
       </View>
-      {claim ? (
-        <>
-          <View style={styles.claimFacts}>
-            <View style={styles.claimFact}>
-              <Text style={styles.claimFactLabel}>Claim No.</Text>
-              <Text style={styles.claimFactValue} numberOfLines={2}>{claim.claimNo}</Text>
-            </View>
-            <View style={styles.claimFact}>
-              <Text style={styles.claimFactLabel}>Vehicle No.</Text>
-              <Text style={styles.claimFactValue} numberOfLines={2}>{claim.vehicleNo}</Text>
-            </View>
-            <View style={styles.claimFact}>
-              <Text style={styles.claimFactLabel}>Current Stage</Text>
-              <View style={styles.stageBadge}>
-                <View style={styles.stageDot} />
-                <Text style={styles.stageBadgeText} numberOfLines={2}>{claim.status}</Text>
+      {visibleClaims.length ? (
+        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={styles.claimSlider}>
+          {visibleClaims.map((item) => (
+            <View key={item.id} style={styles.claimSlide}>
+              <View style={styles.claimFacts}>
+                <View style={styles.claimFact}>
+                  <Text style={styles.claimFactLabel}>Claim No.</Text>
+                  <Text style={styles.claimFactValue} numberOfLines={2}>{item.claimNo}</Text>
+                </View>
+                <View style={styles.claimFact}>
+                  <Text style={styles.claimFactLabel}>Vehicle No.</Text>
+                  <Text style={styles.claimFactValue} numberOfLines={2}>{item.vehicleNo}</Text>
+                </View>
+                <View style={styles.claimFact}>
+                  <Text style={styles.claimFactLabel}>Stage</Text>
+                  <View style={styles.stageBadge}>
+                    <View style={styles.stageDot} />
+                    <Text style={styles.stageBadgeText} numberOfLines={2}>{item.status}</Text>
+                  </View>
+                </View>
               </View>
+              <Text style={styles.lastUpdated}>Updated {item.lastUpdated}</Text>
+              <ProgressSteps status={item.status} />
+              <AnimatedPressable onPress={() => onOpen(item)} style={styles.primarySmallButton}>
+                <Text style={styles.primarySmallButtonText}>View Claim</Text>
+              </AnimatedPressable>
             </View>
-          </View>
-          <Text style={styles.lastUpdated}>Last Updated: {claim.lastUpdated}</Text>
-          <ProgressSteps status={claim.status} />
-        </>
+          ))}
+        </ScrollView>
       ) : (
         <View style={styles.emptyState}>
           <MaterialCommunityIcons name="shield-search" size={30} color="#173B68" />
           <View style={styles.emptyCopy}>
-            <Text style={styles.emptyTitle}>Claim queue clear</Text>
-            <Text style={styles.emptyText}>No open FNOL case.</Text>
+            <Text style={styles.emptyTitle}>No active claims</Text>
+            <Text style={styles.emptyText}>Reported claims will appear here.</Text>
           </View>
         </View>
       )}
@@ -178,23 +183,23 @@ export function QuickActionGrid({ actions }: { actions: { title: string; subtitl
   );
 }
 
-export function SummaryCards({ counts }: { counts: DashboardCounts }) {
+export function SummaryCards({ counts, onVehicles, onPolicies, onClaims }: { counts: DashboardCounts; onVehicles?: () => void; onPolicies?: () => void; onClaims?: () => void }) {
   const items = [
-    { label: 'Vehicles', value: counts.vehicles, icon: 'truck-outline' as const, color: '#E8F1FB' },
-    { label: 'Policies', value: counts.policies, icon: 'shield-outline' as const, color: '#EAF8F0' },
-    { label: 'Claims', value: counts.claims, icon: 'file-document-check-outline' as const, color: '#FFF4E5' },
+    { label: 'Vehicles', value: counts.vehicles, icon: 'truck-outline' as const, color: '#E8F1FB', onPress: onVehicles },
+    { label: 'Policies', value: counts.policies, icon: 'shield-outline' as const, color: '#EAF8F0', onPress: onPolicies },
+    { label: 'Claims', value: counts.claims, icon: 'file-document-check-outline' as const, color: '#FFF4E5', onPress: onClaims },
   ];
 
   return (
     <View style={styles.summaryRow}>
       {items.map((item) => (
-        <View key={item.label} style={styles.summaryCard}>
+        <Pressable key={item.label} accessibilityRole="button" onPress={item.onPress} style={styles.summaryCard}>
           <View style={[styles.summaryIcon, { backgroundColor: item.color }]}>
             <MaterialCommunityIcons name={item.icon} size={21} color="#0B1F3A" />
           </View>
           <Text style={styles.summaryValue}>{item.value}</Text>
           <Text style={styles.summaryLabel}>{item.label}</Text>
-        </View>
+        </Pressable>
       ))}
     </View>
   );
@@ -217,7 +222,7 @@ export function PolicyReminderCard({ vehicleNo, expiry, onView }: { vehicleNo?: 
       ) : (
         <>
           <Text style={styles.cardTitle}>Policy reminders</Text>
-          <Text style={styles.emptyText}>Renewal queue clear.</Text>
+          <Text style={styles.emptyText}>No renewal is due in the next 30 days.</Text>
         </>
       )}
     </View>
@@ -229,7 +234,7 @@ export function SupportCard({ onSupport }: { onSupport: () => void }) {
     <View style={styles.supportCard}>
       <View style={styles.supportCopy}>
         <Text style={styles.supportTitle}>Claims Desk</Text>
-        <Text style={styles.supportText}>Callback queue</Text>
+        <Text style={styles.supportText}>Reach the support team from one place.</Text>
       </View>
       <View style={styles.supportActions}>
         <SupportButton label="Call" icon="phone" disabled />
@@ -343,38 +348,42 @@ function progressIndex(status: Claim['current_status']) {
 
 const styles = StyleSheet.create({
   animatedBody: { width: '100%' },
-  header: { marginBottom: 16, paddingTop: 8 },
+  header: { marginHorizontal: -16, paddingHorizontal: 16, paddingBottom: 10, marginBottom: 10, paddingTop: 8, backgroundColor: '#EEF2F6', zIndex: 10 },
   headerGlow: { position: 'absolute', right: -38, top: -52, width: 150, height: 150, borderRadius: 75, backgroundColor: '#EAF8F0' },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  brandHome: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   logoMark: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#E8F1FB', alignItems: 'center', justifyContent: 'center' },
-  brandText: { flex: 1, color: '#0B1F3A', fontSize: 23, fontWeight: '900' },
-  notificationButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#D8DEE8' },
+  brandText: { color: '#0B1F3A', fontSize: 23, fontWeight: '900' },
+  notificationButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#D8DEE8', marginLeft: 'auto' },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#0B1F3A', alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
-  greeting: { color: '#0B1F3A', fontSize: 18, fontWeight: '500', lineHeight: 26 },
+  greeting: { color: '#0B1F3A', fontSize: 16, fontWeight: '500', lineHeight: 22 },
   greetingName: { fontWeight: '900' },
   headerSubtitle: { color: '#667085', fontSize: 15, lineHeight: 22, marginTop: 6 },
-  accidentHero: { minHeight: 132, marginBottom: 16, borderRadius: 24, padding: 16, overflow: 'hidden', backgroundColor: '#EF2F2A', shadowColor: '#B42318', shadowOpacity: 0.24, shadowRadius: 18, elevation: 5 },
+  accidentHero: { minHeight: 112, marginBottom: 10, borderRadius: 20, padding: 13, overflow: 'hidden', backgroundColor: '#EF2F2A', shadowColor: '#B42318', shadowOpacity: 0.18, shadowRadius: 12, elevation: 4 },
   heroRings: { position: 'absolute', width: 220, height: 220, borderRadius: 110, right: -76, top: -52, borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' },
   heroLabelPill: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 30, borderRadius: 14, backgroundColor: 'rgba(180,35,24,0.36)', paddingHorizontal: 11, marginBottom: 8 },
   heroMainRow: { flexDirection: 'row', alignItems: 'center', minHeight: 100 },
   heroCopy: { flex: 1, minWidth: 0 },
   heroLabel: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
-  heroTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: '900', lineHeight: 30 },
+  heroTitle: { color: '#FFFFFF', fontSize: 21, fontWeight: '900', lineHeight: 26 },
   heroButton: { marginTop: 12, alignSelf: 'flex-start', borderRadius: 15, backgroundColor: '#FFFFFF', paddingHorizontal: 15, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 },
   heroButtonText: { color: '#B42318', fontSize: 15, fontWeight: '900' },
   heroGraphic: { width: 102, alignItems: 'center', justifyContent: 'center' },
   warningTriangle: { marginTop: -7, width: 43, height: 38, borderRadius: 13, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#B9D5FF', shadowColor: '#0B63CE', shadowOpacity: 0.1, shadowRadius: 16, elevation: 2 },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#B9D5FF', shadowColor: '#0B63CE', shadowOpacity: 0.06, shadowRadius: 10, elevation: 1 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 },
-  cardTitle: { color: '#0B1F3A', fontSize: 19, fontWeight: '900' },
+  cardTitle: { color: '#0B1F3A', fontSize: 16, fontWeight: '900' },
+  cardHint: { color: '#667085', fontSize: 12, fontWeight: '900' },
   textActionButton: { paddingVertical: 5, flexDirection: 'row', alignItems: 'center' },
   textAction: { color: '#0B63CE', fontSize: 13, fontWeight: '900' },
   claimNo: { color: '#0B1F3A', fontSize: 24, fontWeight: '900', marginBottom: 12 },
   claimMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 },
   vehiclePill: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#E8F1FB', borderRadius: 16, paddingHorizontal: 12, minHeight: 42 },
   vehicleText: { color: '#0B1F3A', fontSize: 14, fontWeight: '900' },
-  claimFacts: { flexDirection: 'row', gap: 9, marginBottom: 12 },
+  claimSlider: { gap: 10 },
+  claimSlide: { width: 322 },
+  claimFacts: { flexDirection: 'row', gap: 9, marginBottom: 10 },
   claimFact: { flex: 1, minWidth: 0 },
   claimFactLabel: { color: '#667085', fontSize: 12, marginBottom: 5 },
   claimFactValue: { color: '#0B1F3A', fontSize: 13, fontWeight: '900', lineHeight: 18 },
@@ -395,7 +404,7 @@ const styles = StyleSheet.create({
   emptyCopy: { flex: 1 },
   emptyTitle: { color: '#0B1F3A', fontSize: 17, fontWeight: '900', marginBottom: 4 },
   emptyText: { color: '#667085', fontSize: 14, lineHeight: 20 },
-  statusCard: { borderRadius: 24, padding: 15, marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1 },
+  statusCard: { borderRadius: 18, padding: 12, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1 },
   actionCard: { backgroundColor: '#FFF4E5', borderColor: '#FEDF89' },
   successCard: { backgroundColor: '#EAF8F0', borderColor: '#B7E4C7' },
   statusIcon: { width: 48, height: 48, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
@@ -409,31 +418,31 @@ const styles = StyleSheet.create({
   uploadButton: { backgroundColor: '#F79009', borderRadius: 14, paddingHorizontal: 12, minHeight: 40, alignItems: 'center', justifyContent: 'center' },
   uploadButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
   sectionTitle: { color: '#0B1F3A', fontSize: 19, fontWeight: '900', marginBottom: 11 },
-  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: 16 },
+  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8, marginBottom: 10 },
   quickCardSlot: { width: '48.3%' },
-  quickCard: { width: '100%', minHeight: 84, backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 12, paddingVertical: 12, borderWidth: 1, borderColor: '#D8DEE8', shadowColor: '#0B1F3A', shadowOpacity: 0.06, shadowRadius: 12, elevation: 2, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  quickCard: { width: '100%', minHeight: 70, backgroundColor: '#FFFFFF', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 10, borderWidth: 1, borderColor: '#D8DEE8', shadowColor: '#0B1F3A', shadowOpacity: 0.04, shadowRadius: 8, elevation: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   quickIconTile: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   quickCopy: { flex: 1, minWidth: 0 },
   quickTitle: { color: '#0B1F3A', fontSize: 14, fontWeight: '900', lineHeight: 18 },
   quickSubtitle: { color: '#667085', fontSize: 11, lineHeight: 15, marginTop: 2 },
-  summaryRow: { flexDirection: 'row', gap: 9, marginBottom: 16 },
-  summaryCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 22, padding: 12, borderWidth: 1, borderColor: '#D8DEE8', minHeight: 116 },
+  summaryRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  summaryCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 18, padding: 10, borderWidth: 1, borderColor: '#D8DEE8', minHeight: 92 },
   summaryIcon: { width: 34, height: 34, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   summaryValue: { color: '#0B1F3A', fontSize: 28, fontWeight: '900' },
   summaryLabel: { color: '#667085', fontSize: 12, fontWeight: '800', marginTop: 3 },
   primarySmallButton: { alignSelf: 'flex-start', minHeight: 42, borderRadius: 14, paddingHorizontal: 16, backgroundColor: '#18A058', alignItems: 'center', justifyContent: 'center', marginTop: 13 },
   primarySmallButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
-  supportCard: { borderRadius: 24, padding: 16, marginBottom: 16, backgroundColor: '#E8F1FB', borderWidth: 1, borderColor: '#B9D5FF', shadowColor: '#0B63CE', shadowOpacity: 0.1, shadowRadius: 14, elevation: 2, overflow: 'hidden' },
+  supportCard: { borderRadius: 18, padding: 12, marginBottom: 10, backgroundColor: '#E8F1FB', borderWidth: 1, borderColor: '#B9D5FF', shadowColor: '#0B63CE', shadowOpacity: 0.06, shadowRadius: 10, elevation: 1, overflow: 'hidden' },
   supportGlow: { position: 'absolute', right: -40, top: -42, width: 145, height: 145, borderRadius: 73, backgroundColor: 'rgba(24,160,88,0.22)' },
   supportCopy: { marginBottom: 12 },
   supportTitle: { color: '#0B1F3A', fontSize: 20, fontWeight: '900' },
   supportText: { color: '#475467', fontSize: 14, lineHeight: 20, marginTop: 4 },
   supportActions: { flexDirection: 'row', gap: 8 },
-  supportButton: { flex: 1, minHeight: 46, borderRadius: 15, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, borderWidth: 1, borderColor: '#D8DEE8' },
+  supportButton: { flex: 1, minHeight: 58, borderRadius: 16, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, borderWidth: 1, borderColor: '#D8DEE8', gap: 4 },
   supportButtonDisabled: { backgroundColor: '#FFFFFF', opacity: 0.58 },
   supportButtonText: { color: '#0B1F3A', fontSize: 12, fontWeight: '900', textAlign: 'center' },
   supportButtonTextDisabled: { color: '#667085' },
-  bottomNav: { backgroundColor: '#FFFFFF', borderRadius: 25, padding: 10, flexDirection: 'row', justifyContent: 'space-between', borderWidth: 1, borderColor: '#D8DEE8', shadowColor: '#0B1F3A', shadowOpacity: 0.08, shadowRadius: 14, elevation: 3 },
+  bottomNav: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 9, flexDirection: 'row', justifyContent: 'space-between', borderWidth: 1, borderColor: '#D8DEE8', shadowColor: '#0B1F3A', shadowOpacity: 0.08, shadowRadius: 14, elevation: 3 },
   bottomItem: { flex: 1, alignItems: 'center', gap: 3 },
   bottomText: { color: '#667085', fontSize: 10, fontWeight: '800' },
   bottomTextActive: { color: '#0B1F3A' },

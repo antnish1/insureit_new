@@ -1,13 +1,26 @@
-import { useState } from 'react';
+import { Link } from 'expo-router';
+import { useEffect, useState } from 'react';
 
 import { Button, Card, EmptyState, Row, Screen, TextField } from '@/components/ui';
+import { getCurrentSession, getProfile, isValidProfile } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-import type { Customer } from '@/lib/types';
+import type { Customer, Profile } from '@/lib/types';
 
 export default function CustomerSearchScreen() {
   const [query, setQuery] = useState('');
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [searched, setSearched] = useState(false);
+
+  useEffect(() => {
+    async function loadProfile() {
+      const session = await getCurrentSession();
+      if (!session?.user) return;
+      const nextProfile = await getProfile(session.user.id);
+      if (isValidProfile(nextProfile)) setProfile(nextProfile);
+    }
+    void loadProfile();
+  }, []);
 
   async function search() {
     setSearched(true);
@@ -18,6 +31,13 @@ export default function CustomerSearchScreen() {
 
   return (
     <Screen title="Customer Search" showLogout>
+      {profile?.role === 'manager' ? (
+        <Card>
+          <Link href="/staff/create-customer" asChild><Button label="Create customer" onPress={() => undefined} /></Link>
+          <Link href="/staff/add-vehicle" asChild><Button label="Add vehicle" variant="secondary" onPress={() => undefined} /></Link>
+          <Link href="/staff/add-policy" asChild><Button label="Add policy" variant="secondary" onPress={() => undefined} /></Link>
+        </Card>
+      ) : null}
       <Card>
         <TextField label="Name, phone, company, or customer code" value={query} onChangeText={setQuery} />
         <Button label="Search customers" onPress={search} />

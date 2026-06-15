@@ -1,7 +1,7 @@
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 
-import { Button, Card, EmptyState, LoadingState, Row, Screen } from '@/components/ui';
+import { Card, EmptyState, LoadingState, Row, Screen } from '@/components/ui';
 import { getCurrentSession, getCustomerForUser } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import type { Policy } from '@/lib/types';
@@ -29,8 +29,7 @@ export default function PoliciesScreen() {
 
   return (
     <Screen title="My Policies" showLogout>
-      <Link href="/customer/add-policy" asChild><Button label="Add Policy" onPress={() => undefined} /></Link>
-      {policies.length === 0 ? <EmptyState title="No policies yet" body="Add your active policy to speed up claim reporting." /> : policies.map((policy) => (
+      {policies.length === 0 ? <EmptyState title="No policies yet" body="Your assigned team will add policy records for claim support." /> : policies.map((policy) => (
         <Card key={policy.id}>
           <Row label="Policy number" value={policy.policy_no} />
           <Row label="Type" value={policy.policy_type} />

@@ -1,7 +1,7 @@
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 
-import { Button, Card, EmptyState, LoadingState, Row, Screen } from '@/components/ui';
+import { Card, EmptyState, LoadingState, Row, Screen } from '@/components/ui';
 import { getCurrentSession, getCustomerForUser } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import type { Vehicle } from '@/lib/types';
@@ -29,8 +29,7 @@ export default function VehiclesScreen() {
 
   return (
     <Screen title="My Vehicles" showLogout>
-      <Link href="/customer/add-vehicle" asChild><Button label="Add Vehicle" onPress={() => undefined} /></Link>
-      {vehicles.length === 0 ? <EmptyState title="No vehicles yet" body="Add your vehicle to keep claim support details ready." /> : vehicles.map((vehicle) => (
+      {vehicles.length === 0 ? <EmptyState title="No vehicles yet" body="Your assigned team will add vehicle records for claim support." /> : vehicles.map((vehicle) => (
         <Card key={vehicle.id}>
           <Row label="Vehicle number" value={vehicle.vehicle_no} />
           <Row label="Type" value={vehicle.vehicle_type} />
