@@ -1,59 +1,90 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { AppBadge, AppSectionHeader, AppTimeline } from '@/components/design-system';
-import { Button, Card, EmptyState, LoadingState, Message, Screen } from '@/components/ui';
+import { EmptyState, LoadingState, Message, Screen } from '@/components/ui';
 import { requiredDocumentsForStatus } from '@/lib/claim-documents';
 import { customerStageCopy } from '@/lib/claim-workflow';
 import { supabase } from '@/lib/supabase';
-import { palette, radii, roleTheme } from '@/lib/theme';
-import type { Claim, ClaimDocument, ClaimHistory, ClaimStageDetail, ClaimStatus, Vehicle } from '@/lib/types';
+import { palette, roleTheme } from '@/lib/theme';
+import type { Claim, ClaimDocument, ClaimHistory, ClaimStatus, InsuranceCompany, Policy, Vehicle } from '@/lib/types';
 
 export default function ClaimDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+
   const [claim, setClaim] = useState<Claim | null>(null);
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [policy, setPolicy] = useState<Policy | null>(null);
+  const [insurer, setInsurer] = useState<InsuranceCompany | null>(null);
   const [history, setHistory] = useState<ClaimHistory[]>([]);
-  const [stageDetails, setStageDetails] = useState<ClaimStageDetail[]>([]);
   const [documents, setDocuments] = useState<ClaimDocument[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [documentsExpanded, setDocumentsExpanded] = useState(false);
+  const [journeyExpanded, setJourneyExpanded] = useState(false);
 
   useEffect(() => {
     async function load() {
       if (!id) return;
-      const [claimResult, historyResult, documentsResult, stageDetailsResult] = await Promise.all([
+
+      const [claimResult, historyResult, documentsResult] = await Promise.all([
         supabase.from('claims').select('*').eq('id', id).maybeSingle(),
         supabase.from('claim_status_history').select('*').eq('claim_id', id).order('created_at', { ascending: false }),
         supabase.from('claim_documents').select('*').eq('claim_id', id).order('created_at', { ascending: false }),
-        supabase.from('claim_stage_details').select('*').eq('claim_id', id).order('created_at', { ascending: false }),
       ]);
-      setClaim(claimResult.data);
-      if (claimResult.data?.vehicle_id) {
-        const { data } = await supabase.from('vehicles').select('*').eq('id', claimResult.data.vehicle_id).maybeSingle();
+
+      const nextClaim = claimResult.data;
+      setClaim(nextClaim);
+      setHistory(historyResult.data ?? []);
+      const nextDocuments = documentsResult.data ?? [];
+      setDocuments(nextDocuments);
+
+      const previewEntries = await Promise.all(
+        nextDocuments.filter(isImageDocument).map(async (document) => {
+          const { data } = await supabase.storage.from(document.storage_bucket).createSignedUrl(document.storage_path, 300);
+          return data?.signedUrl ? [document.id, data.signedUrl] as const : null;
+        }),
+      );
+      setImagePreviews(Object.fromEntries(previewEntries.filter((entry): entry is readonly [string, string] => entry !== null)));
+
+      if (nextClaim?.vehicle_id) {
+        const { data } = await supabase.from('vehicles').select('*').eq('id', nextClaim.vehicle_id).maybeSingle();
         setVehicle(data);
       }
-      setHistory(historyResult.data ?? []);
-      setDocuments(documentsResult.data ?? []);
-      setStageDetails(stageDetailsResult.data ?? []);
+
+      if (nextClaim?.policy_id) {
+        const { data } = await supabase.from('policies').select('*').eq('id', nextClaim.policy_id).maybeSingle();
+        setPolicy(data);
+
+        const insurerId = nextClaim.insurance_company_id || data?.insurance_company_id;
+        if (insurerId) {
+          const insurerResult = await supabase.from('insurance_companies').select('*').eq('id', insurerId).maybeSingle();
+          setInsurer(insurerResult.data);
+        }
+      }
+
       setLoading(false);
     }
+
     void load();
   }, [id]);
 
   async function openDocument(document: ClaimDocument) {
     setMessage('');
     const { data, error } = await supabase.storage.from(document.storage_bucket).createSignedUrl(document.storage_path, 300);
+
     if (error || !data?.signedUrl) {
       setMessage('We could not open this document. Please try again.');
       return;
     }
+
     await Linking.openURL(data.signedUrl);
   }
+
+  const currentJourneyIndex = useMemo(() => currentJourneyIndexFor(claim?.current_status), [claim?.current_status]);
 
   if (loading) return <Screen title="Claim Detail"><LoadingState /></Screen>;
   if (!claim) return <Screen title="Claim Detail"><EmptyState title="Claim not found" body="Please go back and choose a claim from your list." /></Screen>;
@@ -61,175 +92,239 @@ export default function ClaimDetailScreen() {
   const nextAction = nextActionForStatus(claim.current_status);
   const verifiedCount = documents.filter((document) => document.verification_status === 'verified').length;
   const canUploadDocuments = shouldShowUploadDocuments(claim, documents);
-  const heroTone = claimHeroTone(claim.current_status);
-  const managerUpdateFallbacks = managerUpdateFallbacksFor(history, stageDetails);
+  const tone = claimTone(claim.current_status);
+  const progress = journeyProgress(claim.current_status);
 
   return (
     <Screen title="Claim Detail" showLogout showTitleHeader={false}>
-      {message ? <Message type="error">{message}</Message> : null}
-      <Card style={[styles.heroCard, { backgroundColor: heroTone.background, borderColor: heroTone.border }]}>
-        <View style={[styles.heroWash, { backgroundColor: heroTone.wash }]} />
-        <View style={[styles.heroWashSmall, { backgroundColor: heroTone.washAlt }]} />
-        <View style={styles.heroTop}>
-          <View style={[styles.statusIcon, { backgroundColor: heroTone.accent }]}>
-            <MaterialCommunityIcons name={statusIcon(claim.current_status)} size={25} color={palette.surface} />
-          </View>
-          <View style={styles.heroCopy}>
-            <Text style={styles.heroLabel}>Commercial vehicle claim</Text>
-            <Text style={styles.claimNo}>{claim.claim_no}</Text>
-            <Text style={styles.vehicleNo}>{vehicle?.vehicle_no ?? 'Vehicle linked'}</Text>
-          </View>
-          <AppBadge label={claim.current_status} tone={statusTone(claim.current_status)} />
+      <View style={styles.claimDetailContent}>
+        <View style={styles.pageHeading}>
+          <Text style={styles.pageEyebrow}>Claims</Text>
+          <Text style={styles.pageTitle}>Claim Detail</Text>
         </View>
-        <View style={[styles.nextPanel, { borderColor: heroTone.border }]}>
-          <View style={styles.nextTopRow}>
-            <Text style={[styles.nextLabel, { color: heroTone.accent }]}>Next step</Text>
-            <MaterialCommunityIcons name="transit-connection-variant" size={18} color={heroTone.accent} />
+
+        {message ? <Message type="error">{message}</Message> : null}
+
+        <View style={[styles.heroCard, { backgroundColor: tone.background, borderColor: tone.border }]}>
+        <View style={[styles.accentBar, { backgroundColor: tone.accent }]} />
+
+        <View style={styles.heroTop}>
+          <View style={[styles.statusIcon, { backgroundColor: tone.soft }]}>
+            <MaterialCommunityIcons name={statusIcon(claim.current_status)} size={25} color={tone.accent} />
           </View>
+
+          <View style={styles.heroCopy}>
+            <Text style={[styles.stageLabel, { color: tone.accent }]}>{claimStageLabel(claim.current_status)}</Text>
+            <Text style={styles.vehicleNo} numberOfLines={1}>{vehicle?.vehicle_no ?? 'Vehicle linked'}</Text>
+          </View>
+
+          <View style={[styles.focusStatusBadge, { backgroundColor: tone.soft, borderColor: tone.border }]}>
+            <Text style={[styles.focusStatusText, { color: tone.accent }]} numberOfLines={2}>{claim.current_status}</Text>
+          </View>
+        </View>
+
+        <View style={styles.numberRow}>
+          <View style={styles.numberBox}>
+            <Text style={styles.numberLabel}>Control No.</Text>
+            <Text style={styles.numberValue}>{claim.claim_no}</Text>
+          </View>
+          <View style={styles.numberBox}>
+            <Text style={styles.numberLabel}>Claim No.</Text>
+            <Text style={styles.numberValue}>{claim.insurer_claim_no || 'Awaiting insurer'}</Text>
+          </View>
+        </View>
+
+        <View style={styles.infoBox}>
+          <InfoPair leftLabel="Manufacturer" leftValue={vehicle?.make ?? '-'} rightLabel="Model" rightValue={vehicle?.model ?? '-'} />
+          <InfoPair leftLabel="Policy" leftValue={policy?.policy_no ?? '-'} rightLabel="Insurer" rightValue={insurer?.name ?? '-'} />
+          <InfoPair leftLabel="Last Update" leftValue={formatDateOnly(claim.updated_at ?? claim.created_at)} rightLabel="Incident Date" rightValue={claim.accident_at ? formatDateOnly(claim.accident_at) : '-'} />
+        </View>
+        </View>
+
+        <View style={[styles.nextActionCard, { borderColor: tone.border }]}>
+          <View style={[styles.nextActionIcon, { backgroundColor: tone.soft }]}>
+            <MaterialCommunityIcons name="arrow-right-circle-outline" size={22} color={tone.accent} />
+          </View>
+          <View style={styles.nextActionCopy}>
+          <Text style={[styles.nextLabel, { color: tone.accent }]}>Next Action</Text>
           <Text style={styles.nextTitle}>{nextAction.title}</Text>
           <Text style={styles.nextBody}>{customerStageCopy(claim.current_status)}</Text>
+          </View>
         </View>
-        <View style={styles.factGrid}>
-          <Fact icon="clock-outline" label="Last update" value={formatDateTime(claim.updated_at ?? claim.created_at)} />
-          <Fact icon="calendar-alert" label="Accident date" value={claim.accident_at ? formatDateTime(claim.accident_at) : null} />
-          <Fact icon="map-marker-radius-outline" label="Location" value={claim.accident_location} wide />
-        </View>
-      </Card>
 
-      <View style={styles.actionPanel}>
+        <View style={styles.quickActions}>
         {canUploadDocuments ? (
-          <View style={styles.actionButton}>
-            <Button label="Upload documents" onPress={() => router.push({ pathname: '/customer/upload-documents', params: { claimId: claim.id } })} />
-          </View>
+          <QuickAction icon="cloud-upload-outline" label="Upload Documents" primary onPress={() => router.push({ pathname: '/customer/upload-documents', params: { claimId: claim.id } })} />
         ) : null}
-        <View style={styles.actionButton}>
-          <Button label="Claims Desk" variant="secondary" onPress={() => router.push('/customer/support')} />
+        <QuickAction icon="headset" label="Claims Desk" onPress={() => router.push('/customer/support')} />
         </View>
-      </View>
 
-      <Card style={[styles.journeyCard, styles.journeySection]}>
-        <View style={styles.sectionHeaderRow}>
-          <View style={styles.sectionHeaderCopy}>
-            <AppSectionHeader title="Claim journey" />
-          </View>
-          <View style={styles.progressBadge}>
-            <Text style={styles.progressBadgeText}>{journeyProgress(claim.current_status)}%</Text>
-          </View>
-        </View>
-        <AppTimeline steps={buildJourney(claim.current_status, history)} />
-      </Card>
-
-      <Card style={styles.documentsSection}>
-        <Pressable accessibilityRole="button" onPress={() => setDocumentsExpanded((expanded) => !expanded)} style={styles.documentGroupHeader}>
-          <View style={styles.documentGroupIcon}>
+        <View style={styles.sectionCard}>
+        <Pressable accessibilityRole="button" onPress={() => setDocumentsExpanded((expanded) => !expanded)} style={styles.documentHeader}>
+          <View style={[styles.sectionIcon, { backgroundColor: '#EEF5FF' }]}>
             <MaterialCommunityIcons name="folder-file-outline" size={21} color={roleTheme.customer.accent} />
           </View>
+
           <View style={styles.sectionHeaderCopy}>
-            <Text style={styles.documentGroupTitle}>Documents</Text>
-            <Text style={styles.documentGroupMeta}>{documents.length ? `${documents.length} uploaded - ${verifiedCount} verified` : 'No documents uploaded yet'}</Text>
+            <Text style={styles.sectionTitle}>Documents</Text>
+            <Text style={styles.sectionSub}>{documents.length ? `${documents.length} uploaded • ${verifiedCount} verified` : 'No documents uploaded yet'}</Text>
           </View>
+
           <MaterialCommunityIcons name={documentsExpanded ? 'chevron-up' : 'chevron-down'} size={24} color={palette.slate} />
         </Pressable>
-        {documentsExpanded ? (
-          documents.length ? documents.map((document) => (
-            <DocumentTile key={document.id} document={document} onOpen={() => void openDocument(document)} />
-          )) : (
-            <View style={styles.emptyPanel}>
-              <MaterialCommunityIcons name="cloud-upload-outline" size={24} color={roleTheme.customer.accent} />
-              <Text style={styles.emptyTitle}>No claim documents uploaded yet</Text>
-              <Text style={styles.emptyText}>Upload required claim files.</Text>
-            </View>
-          )
-        ) : null}
-      </Card>
 
-      <Card style={styles.stageDetailsSection}>
-        <AppSectionHeader title="Manager updates" />
-        {stageDetails.length || managerUpdateFallbacks.length ? null : <Text style={styles.emptyText}>No manager details recorded yet.</Text>}
-        {stageDetails.map((item) => (
-          <View key={item.id} style={styles.stageDetailRow}>
-            <Text style={styles.stageDetailTitle}>{item.stage}</Text>
-            <Text style={styles.stageDetailMeta}>{formatStageDetails(item.details)}</Text>
+        {documentsExpanded ? (
+          <View style={styles.documentList}>
+            {documents.length ? documents.map((document) => (
+              <DocumentTile key={document.id} document={document} imagePreview={imagePreviews[document.id]} onOpen={() => void openDocument(document)} />
+            )) : (
+              <View style={styles.emptyPanel}>
+                <MaterialCommunityIcons name="cloud-upload-outline" size={24} color={roleTheme.customer.accent} />
+                <Text style={styles.emptyTitle}>No claim documents uploaded yet</Text>
+                <Text style={styles.emptyText}>Upload required claim files.</Text>
+              </View>
+            )}
           </View>
-        ))}
-        {managerUpdateFallbacks.map((item) => (
-          <View key={`history-${item.id}`} style={styles.stageDetailRow}>
-            <Text style={styles.stageDetailTitle}>{item.to_status}</Text>
-            <Text style={styles.stageDetailMeta}>{item.notes ?? '-'}</Text>
+        ) : null}
+        </View>
+
+        <View style={styles.sectionCard}>
+        <View style={styles.sectionTop}>
+          <View>
+            <Text style={styles.sectionTitle}>Status History</Text>
+            <Text style={styles.sectionSub}>All claim movement records</Text>
           </View>
-        ))}
-      </Card>
-      <Card style={styles.historySection}>
-        <AppSectionHeader title="Status history" />
+        </View>
+
         {history.length ? null : <Text style={styles.emptyText}>No timeline updates yet.</Text>}
+
         {history.map((item) => (
           <View key={item.id} style={styles.historyRow}>
-            <View style={styles.historyDot} />
+            <View style={[styles.historyDot, { backgroundColor: claimTone(item.to_status).accent }]} />
             <View style={styles.historyCopy}>
               <Text style={styles.historyStatus}>{item.to_status}</Text>
-              <Text style={styles.historyMeta}>{item.notes ?? formatDateOnly(item.created_at)}</Text>
+              <Text style={styles.historyMeta}>{formatDateTime(item.created_at)}</Text>
+              {item.notes ? <Text style={styles.historyNote}>{item.notes}</Text> : null}
             </View>
           </View>
         ))}
-      </Card>
+        </View>
+
+        <View style={styles.sectionCard}>
+        <Pressable accessibilityRole="button" onPress={() => setJourneyExpanded((value) => !value)} style={styles.sectionTop}>
+          <View>
+            <Text style={styles.sectionTitle}>Claim Journey</Text>
+            <Text style={styles.sectionSub}>{journey[currentJourneyIndex]?.label ?? claim.current_status}</Text>
+          </View>
+          <View style={styles.journeyRight}>
+            <View style={[styles.progressPill, { backgroundColor: tone.soft }]}>
+              <Text style={[styles.progressText, { color: tone.accent }]}>{progress}%</Text>
+            </View>
+            <MaterialCommunityIcons name={journeyExpanded ? 'chevron-up' : 'chevron-down'} size={22} color={palette.slate} />
+          </View>
+        </Pressable>
+
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: tone.accent }]} />
+        </View>
+
+        <View style={[styles.currentStageBox, { backgroundColor: tone.soft, borderColor: tone.border }]}>
+          <Text style={[styles.currentStageLabel, { color: tone.accent }]}>You are here</Text>
+          <Text style={styles.currentStageText}>{journey[currentJourneyIndex]?.label ?? claim.current_status}</Text>
+        </View>
+
+        {journeyExpanded ? (
+          <View style={styles.journeyList}>
+            {journey.map((step, index) => {
+              const complete = index < currentJourneyIndex;
+              const current = index === currentJourneyIndex;
+              return (
+                <View key={step.label} style={styles.journeyStep}>
+                  <View style={[styles.journeyStepIcon, complete && styles.journeyStepComplete, current && { backgroundColor: tone.accent }]}>
+                    <MaterialCommunityIcons name={complete ? 'check' : current ? 'map-marker' : 'circle-outline'} size={13} color={complete || current ? '#FFFFFF' : palette.slate} />
+                  </View>
+                  <View style={styles.journeyStepCopy}>
+                    <Text style={[styles.journeyStepTitle, current && { color: tone.accent }]}>{step.label}</Text>
+                    <Text style={styles.journeyStepMeta}>{current ? 'Current stage' : complete ? 'Completed' : 'Pending'}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
+        </View>
+      </View>
     </Screen>
   );
 }
 
-function Fact({ icon, label, value, wide = false }: { icon: keyof typeof MaterialCommunityIcons.glyphMap; label: string; value?: string | null; wide?: boolean }) {
+function InfoPair({ leftLabel, leftValue, rightLabel, rightValue }: { leftLabel: string; leftValue: string; rightLabel: string; rightValue: string }) {
   return (
-    <View style={[styles.factTile, wide && styles.factTileWide]}>
-      <View style={styles.factIcon}>
-        <MaterialCommunityIcons name={icon} size={17} color={roleTheme.customer.accent} />
+    <View style={styles.infoPairRow}>
+      <View style={styles.infoPairHalf}>
+        <Text style={styles.infoPairText} numberOfLines={1}><Text style={styles.infoPairLabel}>{leftLabel}: </Text>{leftValue}</Text>
       </View>
-      <Text style={styles.factLabel}>{label}</Text>
-      <Text style={styles.factValue} numberOfLines={wide ? 2 : 1}>{value ?? '-'}</Text>
+      <View style={styles.infoPairHalf}>
+        <Text style={styles.infoPairText} numberOfLines={1}><Text style={styles.infoPairLabel}>{rightLabel}: </Text>{rightValue}</Text>
+      </View>
     </View>
   );
 }
 
-function DocumentTile({ document, onOpen }: { document: ClaimDocument; onOpen: () => void }) {
+function QuickAction({ icon, label, onPress, primary = false }: { icon: keyof typeof MaterialCommunityIcons.glyphMap; label: string; onPress: () => void; primary?: boolean }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={[styles.quickAction, primary && styles.quickActionPrimary]}>
+      <MaterialCommunityIcons name={icon} size={18} color={primary ? '#FFFFFF' : palette.navy} />
+      <Text style={[styles.quickActionText, primary && styles.quickActionTextPrimary]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function DocumentTile({ document, imagePreview, onOpen }: { document: ClaimDocument; imagePreview?: string; onOpen: () => void }) {
   const tone = documentTone(document.verification_status);
+
   return (
     <View style={styles.documentTile}>
       <View style={[styles.documentIcon, { backgroundColor: tone.soft }]}>
-        <MaterialCommunityIcons name={tone.icon} size={21} color={tone.accent} />
+        {imagePreview ? <Image source={{ uri: imagePreview }} style={styles.documentThumbnail} /> : <MaterialCommunityIcons name={tone.icon} size={20} color={tone.accent} />}
       </View>
+
       <View style={styles.documentCopy}>
         <Text style={styles.documentType}>{document.document_type}</Text>
         <Text style={styles.documentName} numberOfLines={1}>{document.file_name}</Text>
       </View>
+
       <View style={styles.documentSide}>
-        <Text style={[styles.documentStatus, { color: tone.accent }]}>{document.verification_status}</Text>
+        <Text style={[styles.documentStatus, { color: tone.accent }]}>{documentStatusText(document.verification_status)}</Text>
         <Pressable accessibilityRole="button" onPress={onOpen} style={styles.openDocumentButton}>
-          <MaterialCommunityIcons name="open-in-new" size={16} color={palette.ink} />
+          <MaterialCommunityIcons name="open-in-new" size={15} color={palette.ink} />
         </Pressable>
       </View>
     </View>
   );
 }
 
-function managerUpdateFallbacksFor(history: ClaimHistory[], stageDetails: ClaimStageDetail[]) {
-  const structuredStages: ClaimStatus[] = ['Surveyor Appointed', 'Final Surveyor Details'];
-  return structuredStages.flatMap((stage) => {
-    if (stageDetails.some((item) => item.stage === stage)) return [];
-    const historyItem = history.find((item) => item.to_status === stage && item.notes);
-    return historyItem ? [historyItem] : [];
-  });
-}
-function formatStageDetails(details: ClaimStageDetail['details']) {
-  if (!details || typeof details !== 'object' || Array.isArray(details)) return '-';
-  return Object.entries(details)
-    .filter(([, value]) => value !== null && value !== '')
-    .map(([key, value]) => `${humanizeKey(key)}: ${String(value)}`)
-    .join(' - ') || '-';
+function claimStageLabel(status: ClaimStatus) {
+  if (status.includes('Document') || status.includes('Awaited')) return 'DOCUMENT STAGE';
+  if (status.includes('Survey') || status.includes('Inspected')) return 'SURVEY STAGE';
+  if (status.includes('Approval') || status.includes('Estimate')) return 'APPROVAL STAGE';
+  if (status.includes('Repair') || status.includes('DO') || status.includes('RA')) return 'REPAIR / DO STAGE';
+  if (status.includes('Payment') || status.includes('Settlement')) return 'PAYMENT STAGE';
+  if (status === 'Closed' || status === 'Settled') return 'COMPLETED';
+  return 'CLAIM STAGE';
 }
 
-function humanizeKey(key: string) {
-  return key.replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase());
+function claimTone(status: ClaimStatus) {
+  if (status === 'Closed' || status === 'Settled') return { accent: '#12805C', soft: '#E8F8F0', background: '#F7FFFB', border: '#BFEBD0' };
+  if (status === 'Rejected') return { accent: '#C43838', soft: '#FDECEC', background: '#FFF7F7', border: '#F2C6C6' };
+  if (status.includes('Payment') || status.includes('Settlement')) return { accent: '#B7791F', soft: '#FFF4E2', background: '#FFFCF5', border: '#F7DCA2' };
+  if (status.includes('Repair') || status.includes('DO') || status.includes('RA')) return { accent: '#7C3AED', soft: '#F0E9FF', background: '#FCFAFF', border: '#D8C8FF' };
+  if (status.includes('Document') || status.includes('Awaited')) return { accent: '#C83272', soft: '#FFF0F6', background: '#FFF8FB', border: '#F8BFD7' };
+  return { accent: '#0B63CE', soft: '#EEF5FF', background: '#F8FBFF', border: '#CFE0FF' };
 }
+
 const journey: { label: string; statuses: ClaimStatus[] }[] = [
-  { label: 'Accident Reported', statuses: ['Accident Reported'] },
+  { label: 'Incident Reported', statuses: ['Accident Reported'] },
   { label: 'Initial Documents', statuses: ['Initial Documents Pending', 'Initial Documents Verification Pending', 'Initial Documents Submitted', 'Initial Documents Verified', 'Documents Submitted', 'Documents Pending'] },
   { label: 'Surveyor Assigned', statuses: ['Surveyor Appointed'] },
   { label: 'Survey Completed', statuses: ['Vehicle Inspected'] },
@@ -243,196 +338,161 @@ const journey: { label: string; statuses: ClaimStatus[] }[] = [
   { label: 'Journey Complete', statuses: ['Claim Complete', 'Settled', 'Closed'] },
 ];
 
-function buildJourney(currentStatus: ClaimStatus, history: ClaimHistory[]) {
-  const currentIndex = Math.max(0, journey.findIndex((step) => step.statuses.includes(currentStatus)));
-  const completedStatuses = new Set(history.map((item) => item.to_status));
-  completedStatuses.add(currentStatus);
-  return journey.map((step, index) => {
-    const state = index < currentIndex || (index <= currentIndex && step.statuses.some((status) => completedStatuses.has(status)) && step.statuses[0] !== currentStatus)
-      ? 'complete' as const
-      : index === currentIndex
-        ? 'current' as const
-        : 'pending' as const;
-    return { label: step.label, state, meta: step.statuses.includes(currentStatus) ? currentStatus : undefined };
-  });
+function currentJourneyIndexFor(status?: ClaimStatus | null) {
+  if (!status) return 0;
+  return Math.max(0, journey.findIndex((step) => step.statuses.includes(status)));
 }
 
-function statusTone(status: ClaimStatus) {
-  if (['Settled', 'Closed'].includes(status)) return 'success';
-  if (['Rejected'].includes(status)) return 'danger';
-  if (['Approval Pending', 'Initial Documents Pending', 'Initial Documents Verification Pending', 'Documents Pending', 'Final Documents Awaited', 'Final Documents Verification Pending', 'Survey Status', 'Work Approval Status', 'RA Intimation', 'DO Status', 'Payment Stage', 'Claim Completion In Progress', 'Settlement Under Process'].includes(status)) return 'warning';
-  return 'info';
-}
-
-function claimHeroTone(status: ClaimStatus) {
-  if (['Initial Documents Pending', 'Documents Pending', 'Final Documents Awaited', 'Accident Reported', 'Draft'].includes(status)) {
-    return { background: '#FFF8EA', border: '#F4D999', wash: 'rgba(245,158,11,0.16)', washAlt: 'rgba(255,255,255,0.7)', accent: palette.amber };
-  }
-  if (['Initial Documents Verification Pending', 'Initial Documents Submitted', 'Documents Submitted', 'Final Documents Verification Pending', 'Final Documents Submitted'].includes(status)) {
-    return { background: '#EFFBFD', border: '#BCEBF1', wash: 'rgba(14,175,200,0.14)', washAlt: 'rgba(255,255,255,0.72)', accent: palette.cyan };
-  }
-  if (['Initial Documents Verified', 'Final Documents Verified', 'Survey Done', 'Work Approval Received', 'RA Intimation Done', 'Claim Complete', 'Settled', 'Closed'].includes(status)) {
-    return { background: '#F0FBF5', border: '#BFEBD0', wash: 'rgba(16,166,111,0.14)', washAlt: 'rgba(255,255,255,0.75)', accent: palette.emerald };
-  }
-  if (['Claim Intimated', 'Claim Intimation', 'Surveyor Appointed', 'Vehicle Inspected', 'Final Surveyor Details', 'Survey Status', 'Survey Done'].includes(status)) {
-    return { background: '#F2F7FF', border: '#C9DDFF', wash: 'rgba(7,94,234,0.14)', washAlt: 'rgba(14,175,200,0.08)', accent: palette.blue };
-  }
-  if (['Estimate Submitted', 'Approval Pending', 'Work Approval Status', 'Work Approval Received'].includes(status)) {
-    return { background: '#F7F5FF', border: '#D8D4FF', wash: 'rgba(98,87,215,0.14)', washAlt: 'rgba(255,255,255,0.74)', accent: palette.violet };
-  }
-  if (['Under Repair', 'Repair Done', 'Repair Started', 'Repair Completed', 'RA Intimation', 'RA Intimation Done', 'DO Status', 'DO Submitted', 'Final Bill Submitted', 'Payment Stage', 'Claim Completion In Progress', 'Claim Complete', 'Settlement Under Process'].includes(status)) {
-    return { background: '#FFF4EF', border: '#FFD2C7', wash: 'rgba(229,72,77,0.1)', washAlt: 'rgba(245,158,11,0.1)', accent: '#E05F2D' };
-  }
-  if (status === 'Rejected') {
-    return { background: '#FFF1F2', border: '#FAC7C9', wash: 'rgba(229,72,77,0.13)', washAlt: 'rgba(255,255,255,0.76)', accent: palette.coral };
-  }
-  return { background: palette.surface, border: palette.line, wash: palette.blueSoft, washAlt: 'rgba(255,255,255,0.8)', accent: palette.blue };
-}
-
-function statusIcon(status: ClaimStatus): keyof typeof MaterialCommunityIcons.glyphMap {
-  if (['Settled', 'Closed'].includes(status)) return 'check-decagram-outline';
-  if (['Rejected'].includes(status)) return 'alert-octagon-outline';
-  if (['Initial Documents Pending', 'Documents Pending', 'Final Documents Awaited'].includes(status)) return 'file-alert-outline';
-  if (['Initial Documents Verification Pending', 'Initial Documents Submitted', 'Documents Submitted', 'Final Documents Verification Pending', 'Final Documents Submitted'].includes(status)) return 'file-search-outline';
-  if (['Surveyor Appointed', 'Vehicle Inspected', 'Final Surveyor Details', 'Survey Status', 'Survey Done'].includes(status)) return 'clipboard-search-outline';
-  if (['Under Repair', 'Repair Done', 'Repair Started', 'Repair Completed', 'RA Intimation', 'RA Intimation Done', 'DO Status'].includes(status)) return 'wrench-outline';
-  if (['Payment Stage', 'Claim Completion In Progress', 'Claim Complete', 'Settlement Under Process'].includes(status)) return 'bank-transfer';
-  return 'truck-check-outline';
+function journeyProgress(status: ClaimStatus) {
+  const index = currentJourneyIndexFor(status);
+  return Math.round(((index + 1) / journey.length) * 100);
 }
 
 function nextActionForStatus(status: ClaimStatus) {
-  if (status === 'Accident Reported' || status === 'Initial Documents Pending') return { title: 'Upload initial documents' };
-  if (status === 'Documents Pending') return { title: 'Complete missing documents' };
-  if (status === 'Initial Documents Verification Pending' || status === 'Initial Documents Submitted' || status === 'Documents Submitted') return { title: 'Initial document verification pending' };
-  if (status === 'Initial Documents Verified') return { title: 'Surveyor appointment' };
-  if (status === 'Surveyor Appointed') return { title: 'Vehicle inspection' };
-  if (status === 'Vehicle Inspected') return { title: 'Final document request' };
-  if (status === 'Final Documents Awaited') return { title: 'Upload final documents' };
-  if (status === 'Final Documents Verification Pending' || status === 'Final Documents Submitted') return { title: 'Final document verification pending' };
-  if (status === 'Final Documents Verified') return { title: 'Claim intimation' };
-  if (status === 'Claim Intimation') return { title: 'Final surveyor details' };
-  if (status === 'Final Surveyor Details') return { title: 'Survey status' };
-  if (status === 'Survey Status') return { title: 'Survey in progress' };
-  if (status === 'Survey Done') return { title: 'Work approval status' };
-  if (status === 'Work Approval Status') return { title: 'Awaiting work approval' };
-  if (status === 'Work Approval Received') return { title: 'Under repair' };
-  if (status === 'Under Repair') return { title: 'Repair in progress' };
-  if (status === 'Repair Done') return { title: 'RA intimation next' };
-  if (status === 'RA Intimation' || status === 'RA Intimation Done') return { title: 'RA intimation' };
-  if (status === 'DO Status') return { title: 'Delivery order status' };
-  if (status === 'Payment Stage') return { title: 'Payment advice' };
-  if (status === 'Claim Completion In Progress') return { title: 'Claim completion in progress' };
-  if (status === 'Claim Complete') return { title: 'Claim completion' };
-  if (['Estimate Submitted', 'Approval Pending', 'Work Approval Status', 'Work Approval Received'].includes(status)) return { title: 'Awaiting approval' };
-  if (['Under Repair', 'Repair Done', 'Repair Started', 'Repair Completed', 'RA Intimation', 'RA Intimation Done', 'DO Status'].includes(status)) return { title: 'Repair and billing' };
-  if (['DO Submitted', 'Final Bill Submitted', 'Settlement Under Process'].includes(status)) return { title: 'Settlement processing' };
-  if (['Settled', 'Closed'].includes(status)) return { title: 'Claim complete' };
-  if (status === 'Rejected') return { title: 'Contact claims desk' };
-  return { title: 'Processing' };
+  if (status.includes('Document') || status.includes('Awaited')) return { title: 'Documents are being collected' };
+  if (status.includes('Survey') || status.includes('Inspected')) return { title: 'Surveyor process is in progress' };
+  if (status.includes('Approval') || status.includes('Estimate')) return { title: 'Approval is being coordinated' };
+  if (status.includes('Repair') || status.includes('DO') || status.includes('RA')) return { title: 'Repair and delivery process is active' };
+  if (status.includes('Payment') || status.includes('Settlement')) return { title: 'Payment settlement is being tracked' };
+  if (status === 'Closed' || status === 'Settled') return { title: 'Claim journey is complete' };
+  return { title: 'Claim desk is processing your case' };
 }
 
-const customerUploadStatuses: ClaimStatus[] = ['Accident Reported', 'Initial Documents Pending', 'Documents Pending', 'Final Documents Awaited'];
-const documentReviewStatuses: ClaimStatus[] = ['Initial Documents Verification Pending', 'Initial Documents Submitted', 'Documents Submitted', 'Final Documents Verification Pending', 'Final Documents Submitted'];
-
 function shouldShowUploadDocuments(claim: Claim, documents: ClaimDocument[]) {
-  if (customerUploadStatuses.includes(claim.current_status)) return true;
-  if (documents.some((document) => document.verification_status === 'rejected')) return true;
-  if (!documentReviewStatuses.includes(claim.current_status)) return false;
-
   const required = requiredDocumentsForStatus(claim.current_status);
-  return required.some((requiredDocument) => {
-    const latestForType = documents
-      .filter((document) => document.document_type === requiredDocument.type)
-      .sort((a, b) => new Date(b.created_at ?? '').getTime() - new Date(a.created_at ?? '').getTime())[0];
-    return !latestForType;
+  return required.some((section) => !documents.some((document) => document.document_type === section.type && document.verification_status !== 'rejected'));
+}
+
+function statusIcon(status: ClaimStatus): keyof typeof MaterialCommunityIcons.glyphMap {
+  if (status.includes('Document')) return 'file-document-check-outline';
+  if (status.includes('Survey')) return 'clipboard-search-outline';
+  if (status.includes('Repair')) return 'wrench-outline';
+  if (status.includes('Payment') || status.includes('Settlement')) return 'bank-transfer';
+  if (status === 'Closed' || status === 'Settled') return 'check-circle-outline';
+  if (status === 'Rejected') return 'close-circle-outline';
+  return 'shield-check-outline';
+}
+
+function documentTone(status: ClaimDocument['verification_status']) {
+  if (status === 'verified') return { accent: '#12805C', soft: '#E8F8F0', icon: 'check-circle-outline' as const };
+  if (status === 'rejected') return { accent: '#C43838', soft: '#FDECEC', icon: 'alert-circle-outline' as const };
+  return { accent: '#B7791F', soft: '#FFF4E2', icon: 'clock-outline' as const };
+}
+
+function documentStatusText(status: ClaimDocument['verification_status']) {
+  if (status === 'verified') return 'Verified';
+  if (status === 'rejected') return 'Replacement';
+  return 'Pending';
+}
+
+function isImageDocument(document: ClaimDocument) {
+  if (document.mime_type?.startsWith('image/')) return true;
+  return /\.(avif|gif|heic|jpe?g|png|webp)$/i.test(document.file_name);
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return '-';
+  return new Date(value).toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
-function documentTone(status: string): { accent: string; soft: string; icon: keyof typeof MaterialCommunityIcons.glyphMap } {
-  if (status === 'verified') return { accent: palette.emerald, soft: palette.emeraldSoft, icon: 'file-check-outline' };
-  if (status === 'rejected') return { accent: palette.coral, soft: palette.coralSoft, icon: 'file-remove-outline' };
-  if (status === 'pending') return { accent: palette.amber, soft: palette.amberSoft, icon: 'file-alert-outline' };
-  return { accent: palette.blue, soft: palette.blueSoft, icon: 'file-document-outline' };
-}
-
-function journeyProgress(currentStatus: ClaimStatus) {
-  const currentIndex = Math.max(0, journey.findIndex((step) => step.statuses.includes(currentStatus)));
-  return Math.round(((currentIndex + 1) / journey.length) * 100);
-}
-
-function formatDateTime(date?: string) {
-  if (!date) return null;
-  return new Date(date).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
-
-function formatDateOnly(date?: string) {
-  if (!date) return '-';
-  return new Date(date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+function formatDateOnly(value?: string | null) {
+  if (!value) return '-';
+  return new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 const styles = StyleSheet.create({
-  heroCard: { padding: 14, overflow: 'hidden', marginTop: -8 },
-  heroWash: { position: 'absolute', right: -70, top: -80, width: 210, height: 210, borderRadius: 105, backgroundColor: palette.emeraldSoft },
-  heroWashSmall: { position: 'absolute', left: -82, bottom: -94, width: 190, height: 190, borderRadius: 95 },
-  heroTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  statusIcon: { width: 44, height: 44, borderRadius: radii.sm, alignItems: 'center', justifyContent: 'center', shadowColor: palette.ink, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 },
+  claimDetailContent: { marginTop: -22 },
+  pageHeading: { marginBottom: 12 },
+  pageEyebrow: { color: palette.slate, fontSize: 10.5, fontWeight: '900', letterSpacing: 0.7, textTransform: 'uppercase' },
+  pageTitle: { color: palette.ink, fontSize: 25, lineHeight: 31, fontWeight: '900', marginTop: 2 },
+  heroCard: { borderRadius: 18, borderWidth: 1, padding: 13, paddingLeft: 17, marginBottom: 10, overflow: 'hidden', shadowColor: palette.ink, shadowOpacity: 0.055, shadowRadius: 10, elevation: 2 },
+  accentBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 5 },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  statusIcon: { width: 48, height: 48, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   heroCopy: { flex: 1, minWidth: 0 },
-  heroLabel: { color: palette.muted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0 },
-  claimNo: { color: palette.ink, fontSize: 20, fontWeight: '800', marginTop: 2 },
-  vehicleNo: { color: palette.slate, fontSize: 14, fontWeight: '600', marginTop: 3 },
-  nextPanel: { marginTop: 14, borderRadius: radii.sm, backgroundColor: palette.surfaceAlt, borderWidth: 1, borderColor: palette.line, padding: 12 },
-  nextTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  nextLabel: { color: roleTheme.customer.accent, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0 },
-  nextTitle: { color: palette.ink, fontSize: 17, fontWeight: '700', marginTop: 4, lineHeight: 22 },
-  nextBody: { color: palette.slate, fontSize: 13, fontWeight: '500', lineHeight: 19, marginTop: 6 },
-  factGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  factTile: { width: '48.7%', borderRadius: radii.sm, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, padding: 10 },
-  factTileWide: { width: '100%' },
-  factIcon: { width: 30, height: 30, borderRadius: radii.sm, backgroundColor: roleTheme.customer.soft, alignItems: 'center', justifyContent: 'center', marginBottom: 7 },
-  factLabel: { color: palette.muted, fontSize: 12, fontWeight: '500' },
-  factValue: { color: palette.ink, fontSize: 14, fontWeight: '700', marginTop: 3, lineHeight: 19 },
-  actionPanel: { flexDirection: 'row', gap: 9, marginBottom: 10, padding: 10, borderRadius: radii.md, backgroundColor: palette.blueMist, borderWidth: 1, borderColor: '#C7DEFF' },
-  actionButton: { flex: 1, minWidth: 0 },
-  journeyCard: { paddingBottom: 16 },
-  journeySection: { backgroundColor: '#F7F5FF', borderColor: '#D8D4FF' },
-  documentsSection: { backgroundColor: '#F0FBF5', borderColor: '#BFEBD0' },
-  stageDetailsSection: { backgroundColor: '#F8FBFF', borderColor: '#D7E6FA' },
-  historySection: { backgroundColor: '#FFF8EA', borderColor: '#F4D999' },
-  sectionHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  stageLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 0.6 },
+  vehicleNo: { color: palette.ink, fontSize: 18, fontWeight: '900', marginTop: 1 },
+  controlNo: { color: palette.slate, fontSize: 11.3, fontWeight: '800', marginTop: 2 },
+  numberRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  numberBox: { flex: 1, backgroundColor: 'rgba(255,255,255,0.82)', borderWidth: 1, borderColor: '#DCE8F4', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 },
+  focusStatusBadge: { maxWidth: 132, minHeight: 34, borderRadius: 12, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
+  focusStatusText: { fontSize: 10.5, lineHeight: 13, fontWeight: '900', textAlign: 'center' },
+  numberLabel: { color: palette.slate, fontSize: 9.5, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.4 },
+  numberValue: { color: palette.ink, fontSize: 12.2, lineHeight: 16, fontWeight: '900', marginTop: 2 },
+
+  infoBox: { marginTop: 11, paddingTop: 9, borderTopWidth: 1, borderTopColor: '#E5ECF5', gap: 5 },
+  infoPairRow: { flexDirection: 'row', gap: 8 },
+  infoPairHalf: { flex: 1, minWidth: 0 },
+  infoPairText: { color: palette.ink, fontSize: 11.1, lineHeight: 15, fontWeight: '800' },
+  infoPairLabel: { color: palette.slate, fontSize: 10.2, fontWeight: '900' },
+  nextActionCard: { flexDirection: 'row', gap: 10, borderRadius: 18, borderWidth: 1, padding: 13, marginBottom: 10, backgroundColor: '#FFFFFF', shadowColor: palette.ink, shadowOpacity: 0.045, shadowRadius: 9, elevation: 1 },
+  nextActionIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  nextActionCopy: { flex: 1, minWidth: 0 },
+  nextLabel: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
+  nextTitle: { color: palette.ink, fontSize: 13.5, fontWeight: '900', marginTop: 3 },
+  nextBody: { color: palette.slate, fontSize: 11.8, lineHeight: 16, fontWeight: '700', marginTop: 3 },
+
+  quickActions: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  quickAction: { flex: 1, minHeight: 42, borderRadius: 14, backgroundColor: '#EEF5FF', borderWidth: 1, borderColor: '#C7DAFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  quickActionPrimary: { backgroundColor: palette.navy, borderColor: palette.navy },
+  quickActionText: { color: palette.navy, fontSize: 12, fontWeight: '900' },
+  quickActionTextPrimary: { color: '#FFFFFF' },
+
+  sectionCard: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DCE8F4', borderRadius: 18, padding: 13, marginBottom: 10, shadowColor: palette.ink, shadowOpacity: 0.045, shadowRadius: 9, elevation: 1 },
+  sectionTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  sectionTitle: { color: palette.navy, fontSize: 15, fontWeight: '900' },
+  sectionSub: { color: palette.slate, fontSize: 11.5, fontWeight: '700', marginTop: 2 },
+  progressPill: { minHeight: 30, borderRadius: 10, paddingHorizontal: 11, alignItems: 'center', justifyContent: 'center' },
+  progressText: { fontSize: 12, fontWeight: '900' },
+
+  progressTrack: { height: 8, borderRadius: 99, backgroundColor: '#E8EEF7', overflow: 'hidden', marginBottom: 11 },
+  progressFill: { height: 8, borderRadius: 99 },
+  stageRail: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  stageRailText: { color: palette.slate, fontSize: 8.5, fontWeight: '900' },
+  dotJourney: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 },
+  dotWrap: { flex: 1, alignItems: 'center' },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#CBD5E1' },
+  dotComplete: { backgroundColor: '#12805C' },
+  currentStageBox: { borderWidth: 1, borderRadius: 14, padding: 10 },
+  currentStageLabel: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
+  currentStageText: { color: palette.ink, fontSize: 13.5, fontWeight: '900', marginTop: 3 },
+
+  documentHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  sectionIcon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   sectionHeaderCopy: { flex: 1, minWidth: 0 },
-  sectionSubtitle: { color: palette.slate, fontSize: 13, fontWeight: '500', lineHeight: 18, marginTop: -5, marginBottom: 8 },
-  progressBadge: { minWidth: 54, height: 34, borderRadius: radii.sm, backgroundColor: roleTheme.customer.soft, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  progressBadgeText: { color: roleTheme.customer.accent, fontSize: 13, fontWeight: '700' },
-  documentCount: { color: palette.slate, fontSize: 12, fontWeight: '600', marginTop: 2 },
-  documentGroupHeader: { minHeight: 62, borderRadius: radii.sm, backgroundColor: palette.surfaceAlt, borderWidth: 1, borderColor: palette.line, paddingHorizontal: 11, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  documentGroupIcon: { width: 40, height: 40, borderRadius: radii.md, backgroundColor: roleTheme.customer.soft, alignItems: 'center', justifyContent: 'center' },
-  documentGroupTitle: { color: palette.ink, fontSize: 16, fontWeight: '800' },
-  documentGroupMeta: { color: palette.slate, fontSize: 12, fontWeight: '600', marginTop: 3 },
-  documentTile: { flexDirection: 'row', alignItems: 'center', gap: 11, borderRadius: radii.sm, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surfaceAlt, padding: 11, marginTop: 9 },
-  documentIcon: { width: 40, height: 40, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center' },
+  documentList: { marginTop: 11, gap: 8 },
+  documentTile: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F8FBFF', borderWidth: 1, borderColor: '#E5ECF5', borderRadius: 14, padding: 10 },
+  documentIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  documentThumbnail: { width: 38, height: 38, borderRadius: 12 },
   documentCopy: { flex: 1, minWidth: 0 },
-  documentType: { color: palette.ink, fontSize: 14, fontWeight: '700' },
-  documentName: { color: palette.muted, fontSize: 12, fontWeight: '500', marginTop: 3 },
-  documentSide: { alignItems: 'flex-end', gap: 6 },
-  documentStatus: { fontSize: 11, fontWeight: '700' },
-  openDocumentButton: { width: 34, height: 30, borderRadius: radii.sm, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: 'center', justifyContent: 'center' },
-  emptyPanel: { borderRadius: radii.md, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surfaceAlt, padding: 14, marginTop: 8 },
-  emptyTitle: { color: palette.ink, fontSize: 15, fontWeight: '700', marginTop: 8 },
-  emptyText: { color: palette.slate, fontSize: 14, fontWeight: '500', lineHeight: 20, marginTop: 4 },
-  stageDetailRow: { paddingVertical: 10, borderTopWidth: 1, borderTopColor: palette.line },
-  stageDetailTitle: { color: palette.ink, fontSize: 15, fontWeight: '800' },
-  stageDetailMeta: { color: palette.slate, fontSize: 13, fontWeight: '500', lineHeight: 18, marginTop: 3 },
-  historyRow: { flexDirection: 'row', gap: 11, paddingVertical: 10, borderTopWidth: 1, borderTopColor: palette.line },
-  historyDot: { width: 11, height: 11, borderRadius: 6, backgroundColor: roleTheme.customer.accent, marginTop: 5 },
-  historyCopy: { flex: 1, minWidth: 0 },
-  historyStatus: { color: palette.ink, fontSize: 15, fontWeight: '700' },
-  historyMeta: { color: palette.slate, fontSize: 13, fontWeight: '500', lineHeight: 18, marginTop: 3 },
+  documentType: { color: palette.ink, fontSize: 12.5, fontWeight: '900' },
+  documentName: { color: palette.slate, fontSize: 11, fontWeight: '700', marginTop: 2 },
+  documentSide: { alignItems: 'flex-end', gap: 5 },
+  documentStatus: { fontSize: 10.5, fontWeight: '900' },
+  openDocumentButton: { width: 30, height: 30, borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DCE8F4', alignItems: 'center', justifyContent: 'center' },
+
+  emptyPanel: { alignItems: 'center', paddingVertical: 14, gap: 5 },
+  emptyTitle: { color: palette.ink, fontSize: 13, fontWeight: '900' },
+  emptyText: { color: palette.slate, fontSize: 12, fontWeight: '700', lineHeight: 17 },
+
+  historyRow: { flexDirection: 'row', gap: 10, paddingVertical: 9, borderTopWidth: 1, borderTopColor: '#E5ECF5' },
+  historyDot: { width: 10, height: 10, borderRadius: 5, marginTop: 4 },
+  historyCopy: { flex: 1 },
+  historyStatus: { color: palette.ink, fontSize: 12.5, fontWeight: '900' },
+  historyMeta: { color: palette.slate, fontSize: 11.5, lineHeight: 16, fontWeight: '900', marginTop: 2 },
+  historyNote: { color: palette.slate, fontSize: 11.3, lineHeight: 16, fontWeight: '700', marginTop: 2 },
+  journeyRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  journeyList: { marginTop: 12, gap: 8 },
+  journeyStep: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: '#F8FBFF', borderWidth: 1, borderColor: '#E5ECF5', borderRadius: 13, padding: 9 },
+  journeyStepIcon: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#E8EEF7', alignItems: 'center', justifyContent: 'center' },
+  journeyStepComplete: { backgroundColor: '#12805C' },
+  journeyStepCopy: { flex: 1 },
+  journeyStepTitle: { color: palette.ink, fontSize: 12.5, fontWeight: '900' },
+  journeyStepMeta: { color: palette.slate, fontSize: 10.8, fontWeight: '700', marginTop: 2 },
 });
-
-
-
-
-
-
-
-

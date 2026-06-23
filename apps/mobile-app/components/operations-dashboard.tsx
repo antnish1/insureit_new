@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+﻿import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { DimensionValue, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -195,7 +195,13 @@ function ClaimOperationsExperience({ claims, name }: { claims: Claim[]; name?: s
   const router = useRouter();
   const cards = useMemo(() => operationsQueueDefinitions.map((queue) => {
     const queueClaims = claims.filter((claim) => queue.statuses.includes(claim.current_status));
-    return { ...queue, count: queueClaims.length, amount: operationsAmount(queue.amount, queueClaims) };
+    const forcedAmount =
+      queue.key === 'claim-intimation' ? operationsAmount('estimated', queueClaims) :
+      queue.key === 'work-approval' ? null :
+      queue.key === 'delivery-order' ? operationsAmount('approved', queueClaims) :
+      queue.key === 'payment' ? operationsAmount('settlement', queueClaims) :
+      operationsAmount(queue.amount, queueClaims);
+    return { ...queue, count: queueClaims.length, amount: forcedAmount };
   }), [claims]);
 
   return (
@@ -207,15 +213,17 @@ function ClaimOperationsExperience({ claims, name }: { claims: Claim[]; name?: s
       <View style={styles.operationsGrid}>
         {cards.map((card) => (
           <Pressable key={card.key} accessibilityRole="button" onPress={() => router.push({ pathname: '/staff/claims', params: { queue: card.key } })} style={styles.operationsCard}>
-            <View style={styles.operationsCardTop}>
-              <View style={[styles.operationsIcon, { backgroundColor: managerToneSoft(card.tone) }]}>
-                <MaterialCommunityIcons name={card.icon} size={26} color={managerToneColor(card.tone)} />
-              </View>
-              <MaterialCommunityIcons name="chevron-right" size={20} color={palette.slate} />
+            <View style={[styles.operationsIcon, { backgroundColor: managerToneSoft(card.tone) }]}>
+              <MaterialCommunityIcons name={card.icon} size={34} color={managerToneColor(card.tone)} />
             </View>
-            <Text style={styles.operationsCardLabel} numberOfLines={2}>{card.label}</Text>
-            <Text style={styles.operationsCardCount}>{card.count}</Text>
-            {card.amount ? <Text style={[styles.operationsAmount, { color: managerToneColor(card.tone) }]}>{card.amount}</Text> : <View style={styles.operationsAmountSpacer} />}
+
+            <View style={styles.operationsCardCopy}>
+              <Text style={styles.operationsCardLabel} numberOfLines={2}>{card.label}</Text>
+              <Text style={styles.operationsCardCount}>{card.count}</Text>
+              {card.amount ? <Text style={[styles.operationsAmount, { color: managerToneColor(card.tone) }]}>{card.amount}</Text> : null}
+            </View>
+
+            <MaterialCommunityIcons name="chevron-right" size={22} color={palette.slate} style={styles.operationsChevron} />
           </Pressable>
         ))}
       </View>
@@ -230,13 +238,13 @@ function operationsAmount(kind: 'none' | 'estimated' | 'approved' | 'settlement'
     if (kind === 'approved') return claim.approved_amount;
     return claim.settlement_amount ?? claim.approved_amount;
   }).filter((value): value is number => value !== null && value !== undefined);
-  if (!values.length) return null;
+  if (!values.length) return 'Amount' + String.fromCharCode(10) + '0';
   const total = values.reduce((sum, value) => sum + value, 0);
-  return 'Amount ' + formatOperationsMoney(total);
+  return 'Amount' + String.fromCharCode(10) + formatOperationsMoney(total);
 }
 
 function formatOperationsMoney(value: number) {
-  return value >= 100000 ? 'INR ' + (value / 100000).toFixed(1) + 'L' : 'INR ' + Math.round(value).toLocaleString('en-IN');
+  return Math.round(value).toLocaleString('en-IN');
 }
 function OperationsExperience({ counts, queueCounts, hotClaims, canHandle }: { counts: DashboardCounts; queueCounts: QueueCount[]; hotClaims: Claim[]; canHandle: boolean }) {
   void queueCounts;
@@ -473,13 +481,13 @@ const styles = StyleSheet.create({
   operationsTitle: { color: palette.ink, fontSize: 20, lineHeight: 25, fontWeight: '900' },
   operationsSubtitle: { color: palette.slate, fontSize: 12, lineHeight: 17, fontWeight: '600', marginTop: 3 },
   operationsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  operationsCard: { width: '48.5%', minHeight: 151, borderRadius: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: '#DCE8F4', padding: 11, shadowColor: palette.ink, shadowOpacity: 0.045, shadowRadius: 9, elevation: 1 },
-  operationsCardTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 9 },
-  operationsIcon: { width: 47, height: 47, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  operationsCardLabel: { color: palette.ink, fontSize: 11, lineHeight: 14, fontWeight: '800', minHeight: 28 },
-  operationsCardCount: { color: palette.ink, fontSize: 25, lineHeight: 29, fontWeight: '900', marginTop: 2 },
-  operationsAmount: { fontSize: 10, lineHeight: 14, fontWeight: '900', marginTop: 3 },
-  operationsAmountSpacer: { height: 17 },  managerSection: { marginTop: 2 },
+  operationsCard: { width: '48.5%', minHeight: 128, borderRadius: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: '#DCE8F4', paddingLeft: 10, paddingRight: 28, flexDirection: 'row', alignItems: 'center', gap: 10, position: 'relative', shadowColor: palette.ink, shadowOpacity: 0.045, shadowRadius: 9, elevation: 1 },
+  operationsCardCopy: { flex: 1, minWidth: 0, alignItems: 'flex-start', justifyContent: 'center' },
+  operationsIcon: { width: 62, height: 62, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  operationsCardLabel: { color: palette.ink, fontSize: 10.5, lineHeight: 13, fontWeight: '800', width: '100%' },
+  operationsCardCount: { color: palette.ink, fontSize: 24, lineHeight: 28, fontWeight: '900', marginTop: 3 },
+  operationsAmount: { fontSize: 9.5, lineHeight: 13, fontWeight: '900', marginTop: 1 },
+  operationsAmountSpacer: { height: 0 }, operationsChevron: { position: 'absolute', right: 7, top: '50%', marginTop: -11 },  managerSection: { marginTop: 2 },
   managerActions: { gap: 10 },
   managerTile: { minHeight: 124, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.92)', borderWidth: 1, borderColor: 'rgba(224,231,240,0.94)', padding: 15, shadowColor: '#0B1220', shadowOpacity: 0.065, shadowRadius: 14, elevation: 2, overflow: 'hidden' },
   managerTileTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
@@ -539,4 +547,13 @@ const styles = StyleSheet.create({
   funnelTrack: { height: 8, borderRadius: 4, backgroundColor: palette.line },
   funnelFill: { height: 8, borderRadius: 4, backgroundColor: roleTheme.management.accent },
 });
+
+
+
+
+
+
+
+
+
 

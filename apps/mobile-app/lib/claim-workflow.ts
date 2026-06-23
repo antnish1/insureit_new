@@ -1,4 +1,4 @@
-import type { ClaimStatus } from './types';
+﻿import type { ClaimStatus } from './types';
 
 export const terminalClaimStatuses: ClaimStatus[] = ['Settled', 'Rejected', 'Closed'];
 
@@ -66,8 +66,9 @@ export const operationsQueueDefinitions = [
   { key: 'claim-intimation', label: 'Claim intimation pending', icon: 'file-send-outline', tone: 'info', amount: 'estimated', statuses: ['Final Documents Awaited', 'Final Documents Verification Pending', 'Final Documents Submitted', 'Final Documents Verified', 'Claim Intimation'] as ClaimStatus[] },
   { key: 'work-approval', label: 'Work approval pending', icon: 'clipboard-check-outline', tone: 'success', amount: 'approved', statuses: ['Estimate Submitted', 'Approval Pending', 'Work Approval Status', 'Work Approval Received'] as ClaimStatus[] },
   { key: 'reinspection', label: 'Re-inspection pending', icon: 'clipboard-search-outline', tone: 'info', amount: 'none', statuses: ['Final Surveyor Details', 'Survey Status', 'Survey Done'] as ClaimStatus[] },
-  { key: 'delivery-order', label: 'Delivery order pending', icon: 'file-document-edit-outline', tone: 'warning', amount: 'none', statuses: ['Under Repair', 'Repair Started', 'Repair Done', 'Repair Completed', 'RA Intimation', 'RA Intimation Done', 'DO Status', 'DO Submitted', 'Final Bill Submitted'] as ClaimStatus[] },
+  { key: 'delivery-order', label: 'Delivery order pending', icon: 'file-document-edit-outline', tone: 'warning', amount: 'approved', statuses: ['Under Repair', 'Repair Started', 'Repair Done', 'Repair Completed', 'RA Intimation', 'RA Intimation Done', 'DO Status', 'DO Submitted', 'Final Bill Submitted'] as ClaimStatus[] },
   { key: 'payment', label: 'Payment pending', icon: 'cash-multiple', tone: 'danger', amount: 'settlement', statuses: ['Payment Stage', 'Claim Completion In Progress', 'Claim Complete', 'Settlement Under Process'] as ClaimStatus[] },
+  { key: 'closed-claims', label: 'Closed Claims', icon: 'check-circle-outline', tone: 'success', amount: 'none', statuses: ['Closed'] as ClaimStatus[] },
 ] as const;
 
 export type OperationsQueueKey = (typeof operationsQueueDefinitions)[number]['key'];
@@ -127,5 +128,8 @@ export function stageAgeLabel(updatedAt?: string | null) {
   if (days === 1) return '1 day in stage';
   return `${days} days in stage`;
 }
+
+
+
 
 
