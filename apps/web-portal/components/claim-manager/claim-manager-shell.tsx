@@ -34,7 +34,7 @@ export async function ClaimManagerShell({ title, backHref = "/dashboard", childr
 
       <div className="pl-[56px]">
         <header className="sticky top-0 z-30 border-b border-[#DFE7F2] bg-white/95 shadow-[0_2px_12px_rgba(7,29,73,0.035)] backdrop-blur">
-          <div className="mx-auto flex h-14 max-w-[1580px] items-center justify-between px-5 lg:px-6">
+          <div className="mx-auto flex h-[68px] max-w-[1580px] items-center justify-between px-5 lg:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <Link href={backHref} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[24px] font-light leading-none text-[#071D49] transition hover:bg-[#F1F6FF]" aria-label="Back">
                 ‹
@@ -46,17 +46,17 @@ export async function ClaimManagerShell({ title, backHref = "/dashboard", childr
               <h1 className="hidden truncate text-[17px] font-semibold tracking-tight text-[#071D49] md:block">{title}</h1>
             </div>
 
-            <div className="flex shrink-0 items-center gap-4 pt-1">
-              <Link href="/notifications" className="group flex flex-col items-center gap-0.5 text-[#071D49]" aria-label="Notifications">
+            <div className="flex h-full shrink-0 items-center gap-5 py-2">
+              <Link href="/notifications" className="group flex h-[52px] flex-col items-center justify-center gap-0.5 text-[#071D49]" aria-label="Notifications">
                 <span className="relative grid h-7 w-7 place-items-center rounded-full bg-white text-[17px] shadow-[0_0_0_1px_rgba(7,29,73,0.08)] transition group-hover:bg-[#F1F6FF]">
                   ♡
                   <span className="absolute -right-1 -top-0.5 grid h-4 w-4 place-items-center rounded-full bg-[#E21D35] text-[10px] font-semibold text-white ring-1 ring-white">5</span>
                 </span>
-                <span className="hidden text-[10.5px] font-medium text-[#1E2A44] sm:block">Notifications</span>
+                <span className="hidden text-[10.5px] font-medium leading-none text-[#1E2A44] sm:block">Notifications</span>
               </Link>
-              <div className="flex flex-col items-center gap-0.5 text-[10.5px] font-medium text-[#1E2A44]">
+              <div className="flex h-[52px] flex-col items-center justify-center gap-0.5 text-[10.5px] font-medium text-[#1E2A44]">
                 <div className="scale-[0.82]"><UserMenu profile={profile} user={user ? { id: user.id, email: user.email } : null} /></div>
-                <span className="hidden sm:block">Profile</span>
+                <span className="hidden leading-none sm:block">Profile</span>
               </div>
             </div>
           </div>
