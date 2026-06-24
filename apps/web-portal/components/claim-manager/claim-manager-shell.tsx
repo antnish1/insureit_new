@@ -18,58 +18,64 @@ export async function ClaimManagerShell({ title, backHref = "/dashboard", childr
 
   return (
     <div className="min-h-screen bg-[#F7FAFE] text-[#071D49]">
-      <header className="sticky top-0 z-30 border-b border-[#DFE7F2] bg-white shadow-[0_2px_12px_rgba(7,29,73,0.04)]">
-        <div className="mx-auto flex h-[106px] max-w-[1560px] items-center justify-between px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-6">
-            <Link href={backHref} className="flex h-12 w-12 shrink-0 items-center justify-center text-[44px] font-light leading-none text-[#071D49] transition hover:-translate-x-0.5" aria-label="Back">
-              ‹
-            </Link>
-            <div className="flex shrink-0 items-center pr-2">
-              <img src={logoUrl} alt="InsureIT" className="h-[82px] w-[300px] object-contain object-left" />
+      <aside className="group fixed left-0 top-0 z-50 h-screen w-[56px] overflow-hidden border-r border-[#DFE7F2] bg-white shadow-[3px_0_18px_rgba(7,29,73,0.05)] transition-all duration-200 hover:w-[220px] focus-within:w-[220px]">
+        <div className="flex h-16 items-center gap-3 border-b border-[#E7EDF5] px-3">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#071D49] text-xs font-semibold text-white">IT</div>
+          <span className="whitespace-nowrap text-sm font-semibold opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">Claim Manager</span>
+        </div>
+        <nav className="mt-3 space-y-1 px-2 text-sm">
+          <SideNavItem href="/dashboard" icon="▦" label="Dashboard" active={activeNav === "dashboard"} />
+          <SideNavItem href="/claims" icon="▤" label="Claims" active={activeNav === "claims"} />
+          <SideNavItem href="/tasks" icon="☑" label="Tasks" active={activeNav === "tasks"} />
+          <SideNavItem href="/reports" icon="▥" label="Reports" active={activeNav === "reports"} />
+          <SideNavItem href="#" icon="••" label="More" active={activeNav === "more"} />
+        </nav>
+      </aside>
+
+      <div className="pl-[56px]">
+        <header className="sticky top-0 z-30 border-b border-[#DFE7F2] bg-white/95 shadow-[0_2px_12px_rgba(7,29,73,0.035)] backdrop-blur">
+          <div className="mx-auto flex h-16 max-w-[1580px] items-center justify-between px-5 lg:px-6">
+            <div className="flex min-w-0 items-center gap-4">
+              <Link href={backHref} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[28px] font-light leading-none text-[#071D49] transition hover:bg-[#F1F6FF]" aria-label="Back">
+                ‹
+              </Link>
+              <div className="flex shrink-0 items-center pr-1">
+                <img src={logoUrl} alt="InsureIT" className="h-[46px] w-[172px] object-contain object-left" />
+              </div>
+              <div className="hidden h-9 w-px bg-[#D7DEE9] md:block" />
+              <h1 className="hidden truncate text-[18px] font-semibold tracking-tight text-[#071D49] md:block">{title}</h1>
             </div>
-            <div className="hidden h-[66px] w-px bg-[#D7DEE9] md:block" />
-            <h1 className="hidden truncate text-[26px] font-black tracking-tight text-[#071D49] md:block">{title}</h1>
-          </div>
 
-          <div className="flex shrink-0 items-center gap-8">
-            <button className="group flex flex-col items-center gap-1 text-[#071D49]" type="button" aria-label="Notifications">
-              <span className="relative grid h-12 w-12 place-items-center rounded-full bg-white text-[32px] shadow-[0_0_0_1px_rgba(7,29,73,0.08)] transition group-hover:bg-[#F1F6FF]">
-                ♡
-                <span className="absolute -right-1 -top-1 grid h-7 w-7 place-items-center rounded-full bg-[#E21D35] text-sm font-black text-white ring-2 ring-white">5</span>
-              </span>
-              <span className="text-sm font-semibold text-[#1E2A44]">Notifications</span>
-            </button>
-            <div className="flex flex-col items-center gap-1 text-sm font-semibold text-[#1E2A44]">
-              <UserMenu profile={profile} user={user ? { id: user.id, email: user.email } : null} />
-              <span>Profile</span>
+            <div className="flex shrink-0 items-center gap-5">
+              <Link href="/notifications" className="group flex flex-col items-center gap-0.5 text-[#071D49]" aria-label="Notifications">
+                <span className="relative grid h-8 w-8 place-items-center rounded-full bg-white text-[20px] shadow-[0_0_0_1px_rgba(7,29,73,0.08)] transition group-hover:bg-[#F1F6FF]">
+                  ♡
+                  <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-[#E21D35] text-[10px] font-semibold text-white ring-1 ring-white">5</span>
+                </span>
+                <span className="hidden text-[11px] font-medium text-[#1E2A44] sm:block">Notifications</span>
+              </Link>
+              <div className="flex flex-col items-center gap-0.5 text-[11px] font-medium text-[#1E2A44]">
+                <div className="scale-90"><UserMenu profile={profile} user={user ? { id: user.id, email: user.email } : null} /></div>
+                <span className="hidden sm:block">Profile</span>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="mx-auto block max-w-[1560px] px-6 pb-4 md:hidden">
-          <h1 className="truncate text-2xl font-black text-[#071D49]">{title}</h1>
-        </div>
-      </header>
+          <div className="mx-auto block max-w-[1580px] px-5 pb-2 md:hidden">
+            <h1 className="truncate text-lg font-semibold text-[#071D49]">{title}</h1>
+          </div>
+        </header>
 
-      <main className="mx-auto max-w-[1560px] px-6 py-5 lg:px-8">{children}</main>
-
-      <nav className="sticky bottom-0 z-20 border-t border-[#DFE7F2] bg-white shadow-[0_-12px_30px_rgba(7,29,73,0.06)]">
-        <div className="mx-auto grid h-[78px] max-w-[1320px] grid-cols-5 items-center text-center text-[13px] font-bold text-[#1E2A44]">
-          <BottomNavItem href="/dashboard" icon="▦" label="Dashboard" active={activeNav === "dashboard"} />
-          <BottomNavItem href="/claims" icon="♢" label="Claims" active={activeNav === "claims"} />
-          <BottomNavItem href="/tasks" icon="▤" label="Tasks" active={activeNav === "tasks"} />
-          <BottomNavItem href="/reports" icon="▥" label="Reports" active={activeNav === "reports"} />
-          <BottomNavItem href="#" icon="•••" label="More" active={activeNav === "more"} />
-        </div>
-      </nav>
+        <main className="mx-auto max-w-[1580px] px-5 py-4 lg:px-6">{children}</main>
+      </div>
     </div>
   );
 }
 
-function BottomNavItem({ href, icon, label, active }: { href: string; icon: string; label: string; active: boolean }) {
+function SideNavItem({ href, icon, label, active }: { href: string; icon: string; label: string; active: boolean }) {
   return (
-    <Link href={href} className={`flex h-full flex-col items-center justify-center gap-1 transition ${active ? "text-[#003A83]" : "text-[#1E2A44]/80 hover:text-[#003A83]"}`}>
-      <span className="text-[28px] leading-none">{icon}</span>
-      <span>{label}</span>
+    <Link href={href} className={`flex h-10 items-center gap-3 rounded-xl px-3 transition ${active ? "bg-[#EAF3FF] text-[#003A83]" : "text-[#344256] hover:bg-[#F5F8FC] hover:text-[#003A83]"}`}>
+      <span className="grid h-6 w-6 shrink-0 place-items-center text-[17px] leading-none">{icon}</span>
+      <span className="whitespace-nowrap text-[13px] font-medium opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">{label}</span>
     </Link>
   );
 }
