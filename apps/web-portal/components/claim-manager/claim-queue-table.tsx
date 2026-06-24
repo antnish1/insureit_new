@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { operationsQueueForStatus, type ClaimStatus } from "@/lib/claim-workflow";
 
@@ -12,6 +13,7 @@ export type QueueClaimRow = {
   vehicles: { vehicle_no: string; make: string | null; model: string | null } | null;
   policies: { policy_no: string } | null;
   insurance_companies: { name: string } | null;
+  assignee?: { full_name: string } | null;
 };
 
 type BrandLogo = {
@@ -95,11 +97,11 @@ function ClaimQueueRow({ claim, index }: { claim: QueueClaimRow; index: number }
   );
 }
 
-function Head({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function Head({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <th className={`px-4 py-4 ${className}`}>{children}</th>;
 }
 
-function Cell({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function Cell({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <td className={`border-r border-[#E4EAF2] px-4 py-4 ${className}`}>{children}</td>;
 }
 
@@ -149,7 +151,7 @@ function QueuePagination({ total }: { total: number }) {
   return <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[#E4EAF2] bg-white px-4 py-4 text-[15px] font-medium text-[#1E2A44] shadow-[0_6px_18px_rgba(7,29,73,0.04)]"><p>Showing 1 to {Math.min(total, 7)} of {total} claims</p><div className="flex items-center gap-3"><PageButton disabled>‹</PageButton><PageButton active>1</PageButton><PageButton>2</PageButton><PageButton>3</PageButton><span className="grid h-10 min-w-10 place-items-center rounded-md border border-[#DCE4EF] px-3 font-black">...</span><PageButton>{pages}</PageButton><PageButton>›</PageButton></div><div className="flex items-center gap-3"><span>Items per page:</span><button className="flex h-10 min-w-[84px] items-center justify-center gap-2 rounded-md border border-[#DCE4EF] bg-white font-bold" type="button">7 <span>⌄</span></button></div></div>;
 }
 
-function PageButton({ children, active = false, disabled = false }: { children: React.ReactNode; active?: boolean; disabled?: boolean }) {
+function PageButton({ children, active = false, disabled = false }: { children: ReactNode; active?: boolean; disabled?: boolean }) {
   return <button className={`grid h-10 min-w-10 place-items-center rounded-md border px-3 font-black ${active ? "border-[#003A83] bg-[#003A83] text-white" : disabled ? "border-[#E4EAF2] bg-[#F8FAFD] text-[#B6C1D1]" : "border-[#DCE4EF] bg-white text-[#071D49]"}`} type="button" disabled={disabled}>{children}</button>;
 }
 
