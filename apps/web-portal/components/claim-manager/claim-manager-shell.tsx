@@ -19,7 +19,7 @@ export async function ClaimManagerShell({ title, backHref = "/dashboard", childr
   return (
     <div className="min-h-screen bg-[#F7FAFE] text-[#071D49]">
       <aside className="group fixed left-0 top-0 z-50 h-screen w-[56px] overflow-hidden border-r border-[#DFE7F2] bg-white shadow-[3px_0_18px_rgba(7,29,73,0.05)] transition-all duration-200 hover:w-[220px] focus-within:w-[220px]">
-        <div className="flex h-16 items-center gap-3 border-b border-[#E7EDF5] px-3">
+        <div className="flex h-14 items-center gap-3 border-b border-[#E7EDF5] px-3">
           <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#071D49] text-xs font-semibold text-white">IT</div>
           <span className="whitespace-nowrap text-sm font-semibold opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">Claim Manager</span>
         </div>
@@ -34,38 +34,38 @@ export async function ClaimManagerShell({ title, backHref = "/dashboard", childr
 
       <div className="pl-[56px]">
         <header className="sticky top-0 z-30 border-b border-[#DFE7F2] bg-white/95 shadow-[0_2px_12px_rgba(7,29,73,0.035)] backdrop-blur">
-          <div className="mx-auto flex h-16 max-w-[1580px] items-center justify-between px-5 lg:px-6">
-            <div className="flex min-w-0 items-center gap-4">
-              <Link href={backHref} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[28px] font-light leading-none text-[#071D49] transition hover:bg-[#F1F6FF]" aria-label="Back">
+          <div className="mx-auto flex h-14 max-w-[1580px] items-center justify-between px-5 lg:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <Link href={backHref} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[24px] font-light leading-none text-[#071D49] transition hover:bg-[#F1F6FF]" aria-label="Back">
                 ‹
               </Link>
               <div className="flex shrink-0 items-center pr-1">
-                <img src={logoUrl} alt="InsureIT" className="h-[46px] w-[172px] object-contain object-left" />
+                <img src={logoUrl} alt="InsureIT" className="h-[38px] w-[142px] object-contain object-left" />
               </div>
-              <div className="hidden h-9 w-px bg-[#D7DEE9] md:block" />
-              <h1 className="hidden truncate text-[18px] font-semibold tracking-tight text-[#071D49] md:block">{title}</h1>
+              <div className="hidden h-8 w-px bg-[#D7DEE9] md:block" />
+              <h1 className="hidden truncate text-[17px] font-semibold tracking-tight text-[#071D49] md:block">{title}</h1>
             </div>
 
-            <div className="flex shrink-0 items-center gap-5">
+            <div className="flex shrink-0 items-center gap-4 pt-1">
               <Link href="/notifications" className="group flex flex-col items-center gap-0.5 text-[#071D49]" aria-label="Notifications">
-                <span className="relative grid h-8 w-8 place-items-center rounded-full bg-white text-[20px] shadow-[0_0_0_1px_rgba(7,29,73,0.08)] transition group-hover:bg-[#F1F6FF]">
+                <span className="relative grid h-7 w-7 place-items-center rounded-full bg-white text-[17px] shadow-[0_0_0_1px_rgba(7,29,73,0.08)] transition group-hover:bg-[#F1F6FF]">
                   ♡
-                  <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-[#E21D35] text-[10px] font-semibold text-white ring-1 ring-white">5</span>
+                  <span className="absolute -right-1 -top-0.5 grid h-4 w-4 place-items-center rounded-full bg-[#E21D35] text-[10px] font-semibold text-white ring-1 ring-white">5</span>
                 </span>
-                <span className="hidden text-[11px] font-medium text-[#1E2A44] sm:block">Notifications</span>
+                <span className="hidden text-[10.5px] font-medium text-[#1E2A44] sm:block">Notifications</span>
               </Link>
-              <div className="flex flex-col items-center gap-0.5 text-[11px] font-medium text-[#1E2A44]">
-                <div className="scale-90"><UserMenu profile={profile} user={user ? { id: user.id, email: user.email } : null} /></div>
+              <div className="flex flex-col items-center gap-0.5 text-[10.5px] font-medium text-[#1E2A44]">
+                <div className="scale-[0.82]"><UserMenu profile={profile} user={user ? { id: user.id, email: user.email } : null} /></div>
                 <span className="hidden sm:block">Profile</span>
               </div>
             </div>
           </div>
-          <div className="mx-auto block max-w-[1580px] px-5 pb-2 md:hidden">
-            <h1 className="truncate text-lg font-semibold text-[#071D49]">{title}</h1>
+          <div className="mx-auto block max-w-[1580px] px-5 pb-1 md:hidden">
+            <h1 className="truncate text-base font-semibold text-[#071D49]">{title}</h1>
           </div>
         </header>
 
-        <main className="mx-auto max-w-[1580px] px-5 py-4 lg:px-6">{children}</main>
+        <main className="mx-auto max-w-[1580px] px-5 py-2 lg:px-6">{children}</main>
       </div>
     </div>
   );
