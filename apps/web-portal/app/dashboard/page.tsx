@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ClaimManagerShell } from "@/components/claim-manager/claim-manager-shell";
 import { createServerSupabaseClient, getAuthenticatedProfile, getServerAccessToken } from "@/lib/auth-server";
 import { getManagerDashboardData, type DashboardActivityRow } from "@/lib/manager-dashboard";
+import { ActivityHandledButton, ActivitySeenButton, ActivityWorkButton } from "./activity-status-buttons";
 
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient();
@@ -43,15 +44,7 @@ export default async function DashboardPage() {
 
           <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
             {dashboard.journeyKpis.map((card) => (
-              <JourneyKpiCard
-                key={card.key}
-                href={`/claims?journey=${card.key}`}
-                index={card.index}
-                title={card.label}
-                value={card.count}
-                updatedCount={card.updatedCount}
-                oldestAgeLabel={card.oldestAgeLabel}
-              />
+              <JourneyKpiCard key={card.key} href={`/claims?journey=${card.key}`} index={card.index} title={card.label} value={card.count} updatedCount={card.updatedCount} oldestAgeLabel={card.oldestAgeLabel} />
             ))}
           </div>
         </section>
@@ -113,24 +106,13 @@ function JourneyKpiCard({ href, index, title, value, updatedCount, oldestAgeLabe
 }
 
 function ManagerActionTable({ rows }: { rows: DashboardActivityRow[] }) {
-  if (!rows.length) {
-    return <EmptyState title="No customer action pending" message="New customer uploads, replies, KYC updates and support activity will appear here." />;
-  }
+  if (!rows.length) return <EmptyState title="No customer action pending" message="New customer uploads, replies, KYC updates and support activity will appear here." />;
 
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full border-collapse text-left text-[12px]">
         <thead className="bg-[#F6F9FD] text-[10.5px] uppercase tracking-[0.08em] text-[#68758A]">
-          <tr>
-            <th className="px-4 py-2.5 font-semibold">Priority</th>
-            <th className="px-4 py-2.5 font-semibold">Customer</th>
-            <th className="px-4 py-2.5 font-semibold">Vehicle</th>
-            <th className="px-4 py-2.5 font-semibold">Control No</th>
-            <th className="px-4 py-2.5 font-semibold">Customer Activity</th>
-            <th className="px-4 py-2.5 font-semibold">Stage</th>
-            <th className="px-4 py-2.5 font-semibold">Age</th>
-            <th className="px-4 py-2.5 text-right font-semibold">Action</th>
-          </tr>
+          <tr><th className="px-4 py-2.5 font-semibold">Priority</th><th className="px-4 py-2.5 font-semibold">Customer</th><th className="px-4 py-2.5 font-semibold">Vehicle</th><th className="px-4 py-2.5 font-semibold">Control No</th><th className="px-4 py-2.5 font-semibold">Customer Activity</th><th className="px-4 py-2.5 font-semibold">Stage</th><th className="px-4 py-2.5 font-semibold">Age</th><th className="px-4 py-2.5 text-right font-semibold">Action</th></tr>
         </thead>
         <tbody className="divide-y divide-[#E8EEF6]">
           {rows.map((row) => (
@@ -139,15 +121,10 @@ function ManagerActionTable({ rows }: { rows: DashboardActivityRow[] }) {
               <td className="px-4 py-2.5 font-medium text-[#071D49]">{customerName(row)}</td>
               <td className="px-4 py-2.5 text-[#4B596B]">{row.vehicles?.vehicle_no ?? "-"}</td>
               <td className="px-4 py-2.5 text-[#4B596B]">{row.claims?.claim_no ?? metadataText(row, "claim_no") ?? "-"}</td>
-              <td className="max-w-[260px] px-4 py-2.5">
-                <p className="font-medium text-[#26364B]">{row.title}</p>
-                <p className="mt-0.5 line-clamp-1 text-[11px] text-[#7A8797]">{row.message ?? eventLabel(row.event_type)}</p>
-              </td>
+              <td className="max-w-[260px] px-4 py-2.5"><p className="font-medium text-[#26364B]">{row.title}</p><p className="mt-0.5 line-clamp-1 text-[11px] text-[#7A8797]">{row.message ?? eventLabel(row.event_type)}</p>{row.status === "in_progress" ? <span className="mt-1 inline-flex rounded-full bg-[#EEF6FF] px-2 py-0.5 text-[10px] font-medium text-[#174EA6]">In progress</span> : null}</td>
               <td className="px-4 py-2.5 text-[#4B596B]">{row.claims?.current_status ?? metadataText(row, "current_status") ?? "-"}</td>
               <td className="px-4 py-2.5 text-[#68758A]">{relativeTime(row.created_at)}</td>
-              <td className="px-4 py-2.5 text-right">
-                <Link href={actionHref(row)} className="rounded-lg bg-[#071D49] px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-[#12356C]">Open</Link>
-              </td>
+              <td className="px-4 py-2.5 text-right"><div className="flex items-center justify-end gap-1.5"><Link href={actionHref(row)} className="rounded-lg bg-[#071D49] px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-[#12356C]">Open</Link><ActivityWorkButton activityId={row.id} /><ActivityHandledButton activityId={row.id} /></div></td>
             </tr>
           ))}
         </tbody>
@@ -157,9 +134,7 @@ function ManagerActionTable({ rows }: { rows: DashboardActivityRow[] }) {
 }
 
 function ActivityFeed({ rows }: { rows: DashboardActivityRow[] }) {
-  if (!rows.length) {
-    return <EmptyState title="No customer activity yet" message="After the Supabase migrations are applied, mobile app actions will start appearing here." />;
-  }
+  if (!rows.length) return <EmptyState title="No customer activity yet" message="After the Supabase migrations are applied, mobile app actions will start appearing here." />;
 
   return (
     <div className="divide-y divide-[#E8EEF6]">
@@ -167,15 +142,11 @@ function ActivityFeed({ rows }: { rows: DashboardActivityRow[] }) {
         <div key={row.id} className="flex items-start gap-3 px-4 py-3 hover:bg-[#FAFCFF]">
           <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#F2F6FB] text-[12px] font-semibold text-[#68758A]">{activityIcon(row.event_type)}</span>
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <p className="text-[12.5px] font-semibold text-[#071D49]">{row.title}</p>
-              <PriorityBadge priority={row.priority} compact />
-              <span className="text-[11px] text-[#7A8797]">{relativeTime(row.created_at)}</span>
-            </div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1"><p className="text-[12.5px] font-semibold text-[#071D49]">{row.title}</p><PriorityBadge priority={row.priority} compact /><span className="text-[11px] text-[#7A8797]">{relativeTime(row.created_at)}</span><span className="rounded-full bg-[#F2F6FB] px-2 py-0.5 text-[10px] font-medium capitalize text-[#68758A]">{row.status.replace("_", " ")}</span></div>
             <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-5 text-[#5C6878]">{row.message ?? eventLabel(row.event_type)}</p>
             <p className="mt-1 text-[11px] text-[#7A8797]">{customerName(row)} {row.claims?.claim_no ? `· ${row.claims.claim_no}` : ""} {row.vehicles?.vehicle_no ? `· ${row.vehicles.vehicle_no}` : ""}</p>
           </div>
-          <Link href={actionHref(row)} className="shrink-0 rounded-lg border border-[#D6E0EC] px-3 py-1.5 text-[11px] font-medium text-[#071D49] transition hover:border-[#174EA6] hover:bg-[#F3F7FD]">View</Link>
+          <div className="flex shrink-0 items-center gap-1.5">{row.status === "new" ? <ActivitySeenButton activityId={row.id} /> : null}<Link href={actionHref(row)} className="rounded-lg border border-[#D6E0EC] px-3 py-1.5 text-[11px] font-medium text-[#071D49] transition hover:border-[#174EA6] hover:bg-[#F3F7FD]">View</Link></div>
         </div>
       ))}
     </div>
@@ -183,74 +154,19 @@ function ActivityFeed({ rows }: { rows: DashboardActivityRow[] }) {
 }
 
 function PriorityBadge({ priority, compact = false }: { priority: DashboardActivityRow["priority"]; compact?: boolean }) {
-  const className = priority === "critical"
-    ? "border-red-200 bg-red-50 text-red-700"
-    : priority === "high"
-      ? "border-orange-200 bg-orange-50 text-orange-700"
-      : priority === "medium"
-        ? "border-blue-200 bg-blue-50 text-blue-700"
-        : "border-slate-200 bg-slate-50 text-slate-600";
-
+  const className = priority === "critical" ? "border-red-200 bg-red-50 text-red-700" : priority === "high" ? "border-orange-200 bg-orange-50 text-orange-700" : priority === "medium" ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-slate-50 text-slate-600";
   return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10.5px] font-medium capitalize ${className}`}>{compact ? priority.slice(0, 1).toUpperCase() : priority}</span>;
 }
 
 function EmptyState({ title, message }: { title: string; message: string }) {
-  return (
-    <div className="px-4 py-8 text-center">
-      <p className="text-[13px] font-semibold text-[#071D49]">{title}</p>
-      <p className="mt-1 text-[11.5px] text-[#7A8797]">{message}</p>
-    </div>
-  );
+  return <div className="px-4 py-8 text-center"><p className="text-[13px] font-semibold text-[#071D49]">{title}</p><p className="mt-1 text-[11.5px] text-[#7A8797]">{message}</p></div>;
 }
 
-function customerName(row: DashboardActivityRow) {
-  return row.customers?.company_name || row.customers?.contact_name || "Customer";
-}
-
-function actionHref(row: DashboardActivityRow) {
-  if (row.claim_id) return `/claims/${row.claim_id}`;
-  if (row.support_ticket_id) return `/support/${row.support_ticket_id}`;
-  if (row.customer_id) return `/customers/${row.customer_id}`;
-  return "/dashboard";
-}
-
-function metadataText(row: DashboardActivityRow, key: string) {
-  const value = row.metadata?.[key];
-  return typeof value === "string" || typeof value === "number" ? String(value) : null;
-}
-
-function eventLabel(eventType: DashboardActivityRow["event_type"]) {
-  return eventType.split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
-}
-
-function activityIcon(eventType: DashboardActivityRow["event_type"]) {
-  if (eventType.includes("document")) return "D";
-  if (eventType.includes("support")) return "S";
-  if (eventType.includes("kyc")) return "K";
-  if (eventType.includes("roadside")) return "R";
-  return "C";
-}
-
-function relativeTime(value: string) {
-  const diffMs = Date.now() - Date.parse(value);
-  if (!Number.isFinite(diffMs)) return "-";
-  const minutes = Math.max(0, Math.floor(diffMs / 60000));
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "1d ago";
-  return `${days}d ago`;
-}
-
-function firstName(name?: string | null) {
-  return name?.trim().split(/\s+/)[0] ?? "";
-}
-
-function greetingForIndiaTime() {
-  const hour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" }).format(new Date()));
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
-}
+function customerName(row: DashboardActivityRow) { return row.customers?.company_name || row.customers?.contact_name || "Customer"; }
+function actionHref(row: DashboardActivityRow) { if (row.claim_id) return `/claims/${row.claim_id}`; if (row.support_ticket_id) return `/support/${row.support_ticket_id}`; if (row.customer_id) return `/customers/${row.customer_id}`; return "/dashboard"; }
+function metadataText(row: DashboardActivityRow, key: string) { const value = row.metadata?.[key]; return typeof value === "string" || typeof value === "number" ? String(value) : null; }
+function eventLabel(eventType: DashboardActivityRow["event_type"]) { return eventType.split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" "); }
+function activityIcon(eventType: DashboardActivityRow["event_type"]) { if (eventType.includes("document")) return "D"; if (eventType.includes("support")) return "S"; if (eventType.includes("kyc")) return "K"; if (eventType.includes("roadside")) return "R"; return "C"; }
+function relativeTime(value: string) { const diffMs = Date.now() - Date.parse(value); if (!Number.isFinite(diffMs)) return "-"; const minutes = Math.max(0, Math.floor(diffMs / 60000)); if (minutes < 1) return "Just now"; if (minutes < 60) return `${minutes}m ago`; const hours = Math.floor(minutes / 60); if (hours < 24) return `${hours}h ago`; const days = Math.floor(hours / 24); if (days === 1) return "1d ago"; return `${days}d ago`; }
+function firstName(name?: string | null) { return name?.trim().split(/\s+/)[0] ?? ""; }
+function greetingForIndiaTime() { const hour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" }).format(new Date())); if (hour < 12) return "Good morning"; if (hour < 17) return "Good afternoon"; return "Good evening"; }
