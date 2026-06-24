@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { AppShell } from "@/components/shell";
-import { StatusBadge } from "@/components/ui";
 import { createServerSupabaseClient } from "@/lib/auth-server";
 import { claimStatuses, isCustomerActionAwaited, isDocumentVerificationPending, isManagerActionRequired, isOpenClaimStatus, operationsQueueForKey, operationsQueueForStatus, stageAgeLabel, terminalClaimStatuses, type ClaimStatus } from "@/lib/claim-workflow";
 
