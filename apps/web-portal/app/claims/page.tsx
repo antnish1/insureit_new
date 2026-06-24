@@ -3,7 +3,9 @@ import { ClaimQueueTable, type QueueClaimRow } from "@/components/claim-manager/
 import { createServerSupabaseClient } from "@/lib/auth-server";
 import { isCustomerActionAwaited, isDocumentVerificationPending, isManagerActionRequired, isOpenClaimStatus, operationsQueueForKey, operationsQueueForStatus, terminalClaimStatuses, type ClaimStatus } from "@/lib/claim-workflow";
 
-type SearchParams = { queue?: string; status?: string; q?: string; page?: string };
+type SearchParams = { queue?: string; status?: string; q?: string; page?: string; pageSize?: string };
+
+const allowedPageSizes = Array.from({ length: 20 }, (_, index) => (index + 1) * 5);
 
 export default async function ClaimsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
@@ -37,24 +39,27 @@ export default async function ClaimsPage({ searchParams }: { searchParams: Promi
 
   const title = titleForQueue(params.queue);
   const page = Math.max(1, Number(params.page ?? "1") || 1);
+  const requestedPageSize = Number(params.pageSize ?? "10") || 10;
+  const pageSize = allowedPageSizes.includes(requestedPageSize) ? requestedPageSize : 10;
   const baseParams = Object.fromEntries(Object.entries({ queue: params.queue, q: params.q }).filter(([, value]) => Boolean(value))) as Record<string, string>;
 
   return (
     <ClaimManagerShell title={title} backHref="/dashboard" activeNav="dashboard">
-      <div className="mb-4 grid grid-cols-[170px_1fr_76px] items-end gap-4 max-xl:grid-cols-1">
+      <div className="mb-3 grid grid-cols-[130px_1fr_72px] items-end gap-3 max-xl:grid-cols-1">
         <div>
-          <p className="text-[13px] font-semibold leading-none text-[#071D49]">Total Claims <span className="text-[12px] font-normal text-[#5C6878]">(All Stages)</span></p>
-          <p className="mt-1.5 text-[38px] font-semibold leading-none tracking-tight text-[#003A83]">{rows.length}</p>
+          <p className="text-[12px] font-medium leading-none text-[#071D49]">Total Claims <span className="text-[11px] font-normal text-[#5C6878]">(All Stages)</span></p>
+          <p className="mt-1 text-[30px] font-semibold leading-none tracking-tight text-[#003A83]">{rows.length}</p>
         </div>
-        <form action="/claims" className="col-span-2 flex items-center gap-3 max-md:flex-col max-md:items-stretch">
+        <form action="/claims" className="col-span-2 flex items-center gap-2.5 max-md:flex-col max-md:items-stretch">
           {params.queue ? <input type="hidden" name="queue" value={params.queue} /> : null}
-          <input name="q" defaultValue={params.q ?? ""} placeholder="Search by customer, vehicle no., claim no., policy no., control no." aria-label="Search claims" className="h-11 flex-1 rounded-lg border border-[#CCD6E4] bg-white px-4 text-[13px] font-normal text-[#071D49] shadow-sm outline-none placeholder:text-[#7A8797] focus:border-[#174EA6] focus:ring-4 focus:ring-blue-100" />
-          <button className="h-11 w-[76px] rounded-lg border border-[#D4DDE9] bg-white text-[12px] font-medium text-[#071D49] shadow-sm transition hover:border-[#174EA6] hover:bg-[#F2F7FF] max-md:w-full" type="submit">Filter</button>
+          <input type="hidden" name="pageSize" value={pageSize} />
+          <input name="q" defaultValue={params.q ?? ""} placeholder="Search by customer, vehicle no., claim no., policy no., control no." aria-label="Search claims" className="h-10 flex-1 rounded-lg border border-[#CCD6E4] bg-white px-3.5 text-[12px] font-normal text-[#071D49] shadow-sm outline-none placeholder:text-[#7A8797] focus:border-[#174EA6] focus:ring-4 focus:ring-blue-100" />
+          <button className="h-10 w-[72px] rounded-lg border border-[#D4DDE9] bg-white text-[11px] font-medium text-[#071D49] shadow-sm transition hover:border-[#174EA6] hover:bg-[#F2F7FF] max-md:w-full" type="submit">Filter</button>
         </form>
       </div>
 
       {error ? <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">{error.message}</div> : null}
-      <ClaimQueueTable rows={rows} page={page} baseParams={baseParams} />
+      <ClaimQueueTable rows={rows} page={page} pageSize={pageSize} baseParams={baseParams} />
     </ClaimManagerShell>
   );
 }
