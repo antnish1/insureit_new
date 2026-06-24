@@ -1,11 +1,11 @@
 import { ClaimManagerShell } from "@/components/claim-manager/claim-manager-shell";
 import { ClaimQueueTable, type QueueClaimRow } from "@/components/claim-manager/claim-queue-table";
 import { createServerSupabaseClient } from "@/lib/auth-server";
-import { isCustomerActionAwaited, isDocumentVerificationPending, isManagerActionRequired, isOpenClaimStatus, operationsQueueForKey, operationsQueueForStatus, terminalClaimStatuses, type ClaimStatus } from "@/lib/claim-workflow";
+import { claimStatuses, isCustomerActionAwaited, isDocumentVerificationPending, isManagerActionRequired, isOpenClaimStatus, operationsQueueForKey, operationsQueueForStatus, terminalClaimStatuses, type ClaimStatus } from "@/lib/claim-workflow";
 
 type SearchParams = { queue?: string; status?: string; q?: string; page?: string; pageSize?: string };
 
-const allowedPageSizes = Array.from({ length: 20 }, (_, index) => (index + 1) * 5);
+const allowedPageSizes = [5, 10, 20, 50, 100];
 
 export default async function ClaimsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
@@ -17,6 +17,7 @@ export default async function ClaimsPage({ searchParams }: { searchParams: Promi
     .returns<QueueClaimRow[]>();
 
   const query = (params.q ?? "").trim().toLowerCase();
+  const selectedStatus = params.status && params.status !== "all" ? params.status : null;
   const rows = (data ?? []).filter((claim) => {
     const process = operationsQueueForStatus(claim.current_status)?.label;
     const haystack = [
@@ -34,31 +35,36 @@ export default async function ClaimsPage({ searchParams }: { searchParams: Promi
       claim.insurance_companies?.name,
       claim.assignee?.full_name
     ].filter(Boolean).join(" ").toLowerCase();
-    return matchesQueue(claim.current_status, params.queue) && (!query || haystack.includes(query));
+    return matchesQueue(claim.current_status, params.queue) && (!selectedStatus || claim.current_status === selectedStatus) && (!query || haystack.includes(query));
   });
 
   const title = titleForQueue(params.queue);
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const requestedPageSize = Number(params.pageSize ?? "10") || 10;
   const pageSize = allowedPageSizes.includes(requestedPageSize) ? requestedPageSize : 10;
-  const baseParams = Object.fromEntries(Object.entries({ queue: params.queue, q: params.q }).filter(([, value]) => Boolean(value))) as Record<string, string>;
+  const baseParams = Object.fromEntries(Object.entries({ queue: params.queue, q: params.q, status: selectedStatus ?? undefined }).filter(([, value]) => Boolean(value))) as Record<string, string>;
 
   return (
     <ClaimManagerShell title={title} backHref="/dashboard" activeNav="dashboard">
-      <div className="mb-3 grid grid-cols-[130px_1fr_72px] items-end gap-3 max-xl:grid-cols-1">
+      <div className="mb-2 grid grid-cols-[145px_1fr] items-center gap-3 max-lg:grid-cols-1">
         <div>
-          <p className="text-[12px] font-medium leading-none text-[#071D49]">Total Claims <span className="text-[11px] font-normal text-[#5C6878]">(All Stages)</span></p>
-          <p className="mt-1 text-[30px] font-semibold leading-none tracking-tight text-[#003A83]">{rows.length}</p>
+          <p className="whitespace-nowrap text-[12px] font-medium leading-none text-[#071D49]">Total Claims <span className="text-[11px] font-normal text-[#5C6878]">(All Stages)</span></p>
+          <p className="mt-1 text-[28px] font-semibold leading-none tracking-tight text-[#003A83]">{rows.length}</p>
         </div>
-        <form action="/claims" className="col-span-2 flex items-center gap-2.5 max-md:flex-col max-md:items-stretch">
+        <form action="/claims" className="flex items-center gap-2 max-md:flex-col max-md:items-stretch">
           {params.queue ? <input type="hidden" name="queue" value={params.queue} /> : null}
+          <input type="hidden" name="page" value="1" />
           <input type="hidden" name="pageSize" value={pageSize} />
           <input name="q" defaultValue={params.q ?? ""} placeholder="Search by customer, vehicle no., claim no., policy no., control no." aria-label="Search claims" className="h-10 flex-1 rounded-lg border border-[#CCD6E4] bg-white px-3.5 text-[12px] font-normal text-[#071D49] shadow-sm outline-none placeholder:text-[#7A8797] focus:border-[#174EA6] focus:ring-4 focus:ring-blue-100" />
-          <button className="h-10 w-[72px] rounded-lg border border-[#D4DDE9] bg-white text-[11px] font-medium text-[#071D49] shadow-sm transition hover:border-[#174EA6] hover:bg-[#F2F7FF] max-md:w-full" type="submit">Filter</button>
+          <select name="status" defaultValue={selectedStatus ?? "all"} aria-label="Filter by status" className="h-10 w-[220px] rounded-lg border border-[#D4DDE9] bg-white px-3 text-[12px] font-medium text-[#071D49] shadow-sm outline-none focus:border-[#174EA6] max-md:w-full">
+            <option value="all">All statuses</option>
+            {claimStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
+          </select>
+          <button className="h-10 w-[82px] rounded-lg border border-[#D4DDE9] bg-white text-[11px] font-medium text-[#071D49] shadow-sm transition hover:border-[#174EA6] hover:bg-[#F2F7FF] max-md:w-full" type="submit">Search</button>
         </form>
       </div>
 
-      {error ? <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">{error.message}</div> : null}
+      {error ? <div className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">{error.message}</div> : null}
       <ClaimQueueTable rows={rows} page={page} pageSize={pageSize} baseParams={baseParams} />
     </ClaimManagerShell>
   );
