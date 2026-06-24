@@ -103,8 +103,9 @@ export function canManageUsers(role: string | null | undefined) {
 export function canViewOrganizationTree(role: string | null | undefined) {
   return Boolean(role && isAppRole(role) && organizationTreeRoles.includes(role));
 }
-export const claimWorkflowRoles: AppRole[] = ["manager", "claim_processor"];
-export const claimViewRoles: AppRole[] = ["manager", "claim_processor", "field_executive", "admin", "super_admin"];
+
+export const claimWorkflowRoles: AppRole[] = ["manager", "claim_processor", "admin", "super_admin", "it_super_user"];
+export const claimViewRoles: AppRole[] = ["manager", "claim_processor", "field_executive", "admin", "super_admin", "it_super_user"];
 
 export function canUpdateClaimStage(role: string | null | undefined) {
   return Boolean(role && isAppRole(role) && claimWorkflowRoles.includes(role));
