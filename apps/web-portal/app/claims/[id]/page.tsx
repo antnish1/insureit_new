@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui";
 import { createServerSupabaseClient, getAuthenticatedProfile, getServerAccessToken } from "@/lib/auth-server";
 import { actionForStatus, managerTransitions, operationsQueueForStatus, requiredDocumentsForStatus, stageAgeLabel, type ClaimStatus } from "@/lib/claim-workflow";
 import { canUpdateClaimStage, canVerifyClaimDocuments } from "@/lib/roles";
+import { saveClaimDocumentVerification } from "./verification-actions";
 
 type ClaimDetail = {
   id: string;
@@ -194,6 +195,7 @@ function VerificationCard({ item, index, claimId, canReviewDocuments }: { item: 
   const document = item.document;
   const isVerified = item.verified || document?.verification_status === "verified";
   const isRejected = document?.verification_status === "rejected";
+  const verificationKind = document ? verificationKindForDocument(document.document_type) : null;
 
   return (
     <div className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm">
@@ -215,11 +217,11 @@ function VerificationCard({ item, index, claimId, canReviewDocuments }: { item: 
           </div>
 
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            {canReviewDocuments && document && document.verification_status !== "verified" ? (
+            {canReviewDocuments && document && document.verification_status !== "verified" && !verificationKind ? (
               <form action={reviewClaimDocument.bind(null, claimId, document.id, "verified")}> 
                 <button className="w-full rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-black text-emerald-700" type="submit">Verify</button>
               </form>
-            ) : <button className="rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2.5 text-sm font-black text-emerald-700" type="button" disabled>{isVerified ? "Verified" : "Verify"}</button>}
+            ) : <button className="rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2.5 text-sm font-black text-emerald-700" type="button" disabled>{isVerified ? "Verified" : verificationKind ? "Verify Details" : "Verify"}</button>}
             {document?.signedUrl ? <a className="rounded-xl border border-blue-200 bg-white px-3 py-2.5 text-center text-sm font-black text-blue-700" href={document.signedUrl} target="_blank" rel="noreferrer">Reload</a> : <button className="rounded-xl border border-blue-100 bg-slate-50 px-3 py-2.5 text-sm font-black text-slate-400" type="button" disabled>Reload</button>}
             {canReviewDocuments && document && document.verification_status !== "verified" ? (
               <form action={reviewClaimDocument.bind(null, claimId, document.id, "rejected")}> 
@@ -228,8 +230,83 @@ function VerificationCard({ item, index, claimId, canReviewDocuments }: { item: 
               </form>
             ) : <button className="rounded-xl border border-red-100 bg-red-50/60 px-3 py-2.5 text-sm font-black text-red-400" type="button" disabled>Replace</button>}
           </div>
+
+          {canReviewDocuments && document && document.verification_status !== "verified" && verificationKind ? (
+            <StructuredVerificationForm claimId={claimId} document={document} verificationKind={verificationKind} />
+          ) : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+function StructuredVerificationForm({ claimId, document, verificationKind }: { claimId: string; document: SignedClaimDocument; verificationKind: "rc" | "insurance" }) {
+  if (verificationKind === "insurance") {
+    return (
+      <form action={saveClaimDocumentVerification.bind(null, claimId, document.id, "insurance")} className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
+        <p className="text-sm font-black text-navy-900">Insurance Copy Verification Details</p>
+        <p className="mt-1 text-xs font-semibold text-slate-600">Verify policy dates, NCB, risk type and GVW before saving.</p>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <InputField name="insurance_start_date" label="Insurance Start Date" type="date" required />
+          <InputField name="insurance_end_date" label="Insurance End Date" type="date" required />
+          <InputField name="ncb_percent" label="NCB Verification %" type="number" required suffix="%" />
+          <SelectField name="policy_risk_type" label="Hazardous or Non Hazardous Policy" options={["Hazardous", "Non Hazardous"]} required />
+          <InputField name="gvw_kg" label="GVW Mention in Kgs" type="number" required suffix="Kgs" />
+        </div>
+        <input type="hidden" name="notes" value="Insurance copy verification details saved." />
+        <button className="mt-4 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-black text-white hover:bg-navy-900" type="submit">Save & Verify</button>
+      </form>
+    );
+  }
+
+  return (
+    <form action={saveClaimDocumentVerification.bind(null, claimId, document.id, "rc")} className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
+      <p className="text-sm font-black text-navy-900">RC Copy Verification Details</p>
+      <p className="mt-1 text-xs font-semibold text-slate-600">Select valid upto dates and status for each item.</p>
+      <div className="mt-3 grid gap-3">
+        <ValidityRow name="fitness" label="Fitness Valid Upto" />
+        <ValidityRow name="tax" label="Tax Valid Upto" />
+        <ValidityRow name="insurance" label="Insurance Valid Upto" />
+        <ValidityRow name="pucc" label="PUCC Valid Upto" />
+        <ValidityRow name="local_permit" label="Local Permit Valid Upto" />
+        <ValidityRow name="national_permit" label="National Permit Valid Upto" />
+      </div>
+      <input type="hidden" name="notes" value="RC copy verification details saved." />
+      <button className="mt-4 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-black text-white hover:bg-navy-900" type="submit">Save & Verify</button>
+    </form>
+  );
+}
+
+function InputField({ name, label, type = "text", required = false, suffix }: { name: string; label: string; type?: string; required?: boolean; suffix?: string }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-black text-navy-900">{label}{required ? " *" : ""}</span>
+      <div className="mt-1 flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2">
+        <input name={name} type={type} required={required} className="w-full border-0 bg-transparent p-0 text-sm outline-none" />
+        {suffix ? <span className="pl-2 text-xs font-bold text-slate-500">{suffix}</span> : null}
+      </div>
+    </label>
+  );
+}
+
+function SelectField({ name, label, options, required = false }: { name: string; label: string; options: string[]; required?: boolean }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-black text-navy-900">{label}{required ? " *" : ""}</span>
+      <select name={name} required={required} className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-navy-900">
+        <option value="">Select</option>
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function ValidityRow({ name, label }: { name: string; label: string }) {
+  return (
+    <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 md:grid-cols-[1fr_180px_170px] md:items-end">
+      <p className="text-sm font-black text-navy-900">{label}</p>
+      <InputField name={`${name}_valid_upto`} label="Valid Upto" type="date" required />
+      <SelectField name={`${name}_status`} label="Status" options={["Valid", "Expired"]} required />
     </div>
   );
 }
@@ -349,6 +426,12 @@ function iconForDocument(type: string) {
   if (type === "Spot Photo") return "📷";
   if (type.includes("invoice") || type.includes("estimate") || type.includes("receipt")) return "🧾";
   return "📁";
+}
+
+function verificationKindForDocument(type: string): "rc" | "insurance" | null {
+  if (type === "Registration certificate") return "rc";
+  if (type === "Policy copy") return "insurance";
+  return null;
 }
 
 function titleForWorkspace(queueKey?: string, fallback?: string) {
