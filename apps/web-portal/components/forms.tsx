@@ -67,7 +67,7 @@ export function CustomerForm({ action, values, agents = [], submitLabel = "Save 
   );
 }
 
-export function VehicleForm({ action, customers, values, submitLabel = "Save record" }: { action: FormAction; customers: SelectOption[]; values?: VehicleValues; submitLabel?: string }) {
+export function VehicleForm({ action, customers, manufacturers = [], values, submitLabel = "Save record" }: { action: FormAction; customers: SelectOption[]; manufacturers?: SelectOption[]; values?: VehicleValues; submitLabel?: string }) {
   return (
     <Card>
       <form action={action}>
@@ -75,7 +75,7 @@ export function VehicleForm({ action, customers, values, submitLabel = "Save rec
           <Field label="Vehicle number" name="vehicle_no" placeholder="MH12AB1234" required defaultValue={values?.vehicle_no} />
           <SelectField label="Customer" name="customer_id" options={customers} required defaultValue={values?.customer_id} emptyLabel="Select customer" />
           <Field label="Vehicle type" name="vehicle_type" placeholder="Truck / Bus / Taxi / Goods carrier" required defaultValue={values?.vehicle_type} />
-          <Field label="Make" name="make" placeholder="Tata" defaultValue={values?.make} />
+          <SelectField label="Manufacturer" name="make" options={manufacturers} required defaultValue={values?.make} emptyLabel="Select manufacturer" />
           <Field label="Model" name="model" placeholder="407" defaultValue={values?.model} />
           <Field label="Chassis number" name="chassis_no" placeholder="Chassis number" defaultValue={values?.chassis_no} />
           <Field label="Engine number" name="engine_no" placeholder="Engine number" defaultValue={values?.engine_no} />
