@@ -92,7 +92,6 @@ export default async function DashboardPage() {
 
 function buildCommandKpis(dashboard: Awaited<ReturnType<typeof getManagerDashboardData>>): CommandKpi[] {
   const journeyCount = (key: string) => dashboard.journeyKpis.find((stage) => stage.key === key)?.count ?? 0;
-  const attentionCount = (key: string) => dashboard.attentionKpis.find((kpi) => kpi.key === key)?.value ?? 0;
   const totalClaims = dashboard.journeyKpis.reduce((total, stage) => total + stage.count, 0);
   const closedClaims = journeyCount("journey-complete");
   const ageingRisk = dashboard.journeyKpis.filter((stage) => oldestAgeDays(stage.oldestAgeLabel) >= 7).reduce((total, stage) => total + stage.count, 0);
