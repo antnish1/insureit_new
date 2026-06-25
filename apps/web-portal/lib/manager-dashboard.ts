@@ -193,9 +193,8 @@ export async function getManagerDashboardData(supabase: SupabaseClient): Promise
     journeyKpis,
     actionRows: activeActivities
       .slice()
-      .sort((a, b) => priorityRank(b.priority) - priorityRank(a.priority) || Date.parse(b.created_at) - Date.parse(a.created_at))
-      .slice(0, 8),
-    activityFeed: activities.slice(0, 12),
+      .sort((a, b) => priorityRank(b.priority) - priorityRank(a.priority) || Date.parse(b.created_at) - Date.parse(a.created_at)),
+    activityFeed: activities,
     errors: [claimsResult.error?.message, activityResult.error?.message].filter(Boolean) as string[]
   };
 }
