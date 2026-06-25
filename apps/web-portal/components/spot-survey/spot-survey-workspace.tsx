@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { verifySpotSurveyDetail, verifySpotSurveyDocument } from "@/app/claims/[id]/spot-survey-actions";
 import { ReplaceDocumentButton } from "./replace-document-button";
+import { VerifyDetailButton, VerifyDocumentButton } from "./verify-buttons";
 
 export type SpotSurveyClaim = {
   id: string;
@@ -134,13 +134,7 @@ function DocumentVerificationCard({ item, claim }: { item: VerificationItem; cla
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2">
-        {item.document ? (
-          <form action={verifySpotSurveyDocument}>
-            <input type="hidden" name="claimId" value={claim.id} />
-            <input type="hidden" name="documentId" value={item.document.id} />
-            <button type="submit" className="h-8 w-full rounded-md border border-[#16A36A] bg-white text-[12px] font-semibold text-[#16895C] transition hover:bg-[#F2FBF7]">Verify</button>
-          </form>
-        ) : <button disabled className="h-8 rounded-md border border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-400">Verify</button>}
+        {item.document ? <VerifyDocumentButton claimId={claim.id} documentId={item.document.id} /> : <button disabled className="h-8 rounded-md border border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-400">Verify</button>}
         {item.document?.signedUrl ? <Link href={item.document.signedUrl} target="_blank" className="flex h-8 items-center justify-center rounded-md border border-[#4C68A6] bg-white text-[12px] font-semibold text-[#174EA6] transition hover:bg-[#F4F7FF]">Reload</Link> : <button disabled className="h-8 rounded-md border border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-400">Reload</button>}
         <ReplaceDocumentButton claimId={claim.id} customerId={claim.customer_id} documentType={item.documentType ?? item.title} label={item.title} />
       </div>
@@ -165,13 +159,7 @@ function DetailVerificationCard({ item, claim }: { item: VerificationItem; claim
         </div>
       </div>
       <div className="mt-3 grid grid-cols-[1fr_1fr] gap-2">
-        <form action={verifySpotSurveyDetail}>
-          <input type="hidden" name="claimId" value={claim.id} />
-          <input type="hidden" name="detailKey" value={item.key} />
-          <input type="hidden" name="detailLabel" value={item.detailLabel ?? item.title} />
-          <input type="hidden" name="detailValue" value={item.detailValue ?? ""} />
-          <button type="submit" disabled={!item.detailValue} className="h-8 w-full rounded-md border border-[#16A36A] bg-white text-[12px] font-semibold text-[#16895C] transition hover:bg-[#F2FBF7] disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400">Verify</button>
-        </form>
+        <VerifyDetailButton claimId={claim.id} detailKey={item.key} detailLabel={item.detailLabel ?? item.title} detailValue={item.detailValue ?? ""} disabled={!item.detailValue} />
         <button type="button" className="h-8 rounded-md border border-[#4C68A6] bg-white text-[12px] font-semibold text-[#174EA6] transition hover:bg-[#F4F7FF]">Update</button>
       </div>
     </article>
