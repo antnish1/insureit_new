@@ -139,42 +139,45 @@ function InfoStrip({ claim }: { claim: SpotSurveyClaim }) {
   const customerName = claim.customers?.company_name || claim.customers?.contact_name || "-";
   const insurer = claim.insurance_companies?.name || "-";
   const insurerRef = claim.insurer_claim_no || claim.policies?.policy_no || claim.claim_no;
-  const manufacturer = claim.vehicles?.make || "-";
+  const make = claim.vehicles?.make || "-";
+  const model = claim.vehicles?.model || "-";
   return (
-    <section className="grid overflow-hidden rounded-2xl border border-[#DFE8F4] bg-[#F8FBFF] shadow-[0_6px_18px_rgba(7,29,73,0.03)] md:grid-cols-4 xl:grid-cols-8">
+    <section className="grid overflow-hidden rounded-2xl border border-[#DFE8F4] bg-[#F8FBFF] shadow-[0_6px_18px_rgba(7,29,73,0.03)] md:grid-cols-3 xl:grid-cols-5">
       <Info icon="👤" label="Customer" title={customerName} subtitle={claim.customers?.phone ?? "-"} />
       <Info icon="🚗" label="Vehicle No." title={claim.vehicles?.vehicle_no ?? "-"} />
-      <Info label="Manufacturer" title={manufacturer} subtitle={claim.vehicles?.model ?? "-"} logo={<ManufacturerLogo name={manufacturer} />} />
+      <Info label="Make & Model" title={make} subtitle={model} logo={<ManufacturerLogo name={make} />} />
       <Info label="Insurer" title={insurer} subtitle={insurerRef} logo={<InsurerLogo name={insurer} />} />
       <Info icon="📅" label="Loss Date" title={formatDateShort(claim.accident_at)} />
       <Info icon="🧾" label="Policy No." title={claim.policies?.policy_no ?? "-"} />
       <Info icon="#" label="Control No." title={claim.claim_no} />
-      <Info icon="▣" label="Claim No." title={claim.insurer_claim_no ?? "-"} subtitle={claim.current_status ?? undefined} last />
+      <Info icon="▣" label="Claim No." title={claim.insurer_claim_no ?? "-"} />
+      <Info icon="✓" label="Claim Status" title={claim.current_status ?? "-"} last />
     </section>
   );
 }
 
 function Info({ icon, label, title, subtitle, logo, last = false }: { icon?: string; label: string; title: string; subtitle?: string | null; logo?: React.ReactNode; last?: boolean }) {
-  return <div className={`flex min-h-[78px] items-center gap-3 px-4 py-3 ${last ? "" : "border-b border-[#DFE8F4] md:border-b-0 md:border-r"}`}><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#EEF4FC] text-[20px]">{logo ?? icon}</div><div className="min-w-0"><p className="text-[10px] font-medium uppercase tracking-[0.04em] leading-4 text-[#174EA6]">{label}</p><p className="mt-0.5 truncate text-[14px] font-semibold leading-5 text-[#071D49]">{title}</p>{subtitle ? <p className="truncate text-[12px] leading-4 text-[#1F2B3D]">{subtitle}</p> : null}</div></div>;
+  return <div className={`flex min-h-[78px] items-start gap-3 px-4 py-3 ${last ? "" : "border-b border-[#DFE8F4] md:border-b-0 md:border-r"}`}><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#EEF4FC] text-[20px]">{logo ?? icon}</div><div className="min-w-0 flex-1"><p className="text-[10px] font-medium uppercase tracking-[0.04em] leading-4 text-[#174EA6]">{label}</p><p className="mt-0.5 whitespace-normal break-words text-[14px] font-semibold leading-5 text-[#071D49]">{title}</p>{subtitle ? <p className="whitespace-normal break-words text-[12px] leading-4 text-[#1F2B3D]">{subtitle}</p> : null}</div></div>;
 }
 
 function SpotSurveyDetailsPanel({ driverName, driverMobile, lossLocation }: { driverName: string | null; driverMobile: string | null; lossLocation: string | null }) {
   const mapHref = lossLocation ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lossLocation)}` : null;
   return (
     <section className="rounded-xl border border-[#DFE8F4] bg-white px-3 py-2 shadow-[0_5px_14px_rgba(7,29,73,0.025)]">
-      <div className="grid gap-2 lg:grid-cols-3">
+      <div className="grid gap-2 lg:grid-cols-[180px_190px_minmax(0,1fr)]">
         <CompactDetail icon="👤" label="Driver Name" value={driverName || "Not available"} />
-        <CompactDetail icon="☎" label="Mobile No." value={driverMobile || "Not available"} href={driverMobile ? `tel:${driverMobile}` : undefined} />
-        <CompactDetail icon="📍" label="Loss Location" value={lossLocation || "Not available"} href={mapHref ?? undefined} />
+        <CompactDetail icon="☎" label="Driver's Mobile No." value={driverMobile || "Not available"} href={driverMobile ? `tel:${driverMobile}` : undefined} />
+        <CompactDetail icon="📍" label="Loss Location" value={lossLocation || "Not available"} href={mapHref ?? undefined} isWide />
       </div>
     </section>
   );
 }
 
-function CompactDetail({ icon, label, value, href }: { icon: string; label: string; value: string; href?: string }) {
-  const content = <><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#EEF4FC] text-[16px]">{icon}</span><span className="min-w-0"><span className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[#68758A]">{label}</span><span className="block truncate text-[13px] font-semibold text-[#071D49]">{value}</span></span></>;
-  if (href) return <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined} className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[#E2EAF4] bg-[#FBFCFE] px-3 py-2 transition hover:border-[#174EA6] hover:bg-[#F4F8FF]">{content}</a>;
-  return <div className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[#E2EAF4] bg-[#FBFCFE] px-3 py-2">{content}</div>;
+function CompactDetail({ icon, label, value, href, isWide = false }: { icon: string; label: string; value: string; href?: string; isWide?: boolean }) {
+  const valueClass = isWide ? "whitespace-normal break-words text-[13px] font-semibold leading-5 text-[#071D49]" : "truncate text-[13px] font-semibold text-[#071D49]";
+  const content = <><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#EEF4FC] text-[16px]">{icon}</span><span className="min-w-0 flex-1"><span className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[#68758A]">{label}</span><span className={`block ${valueClass}`}>{value}</span></span></>;
+  if (href) return <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined} className="flex min-h-[44px] items-start gap-2 rounded-lg border border-[#E2EAF4] bg-[#FBFCFE] px-3 py-2 transition hover:border-[#174EA6] hover:bg-[#F4F8FF]">{content}</a>;
+  return <div className="flex min-h-[44px] items-start gap-2 rounded-lg border border-[#E2EAF4] bg-[#FBFCFE] px-3 py-2">{content}</div>;
 }
 
 function DocumentCard({ item, claim, verification }: { item: Item; claim: SpotSurveyClaim; verification?: SpotSurveyVerification }) {
