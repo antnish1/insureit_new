@@ -105,9 +105,7 @@ export function SpotSurveyWorkspace({ claim, documents, verifications = [] }: { 
   return (
     <div className="mx-auto max-w-[1440px] space-y-3 pb-6">
       <InfoStrip claim={claim} />
-
       <SpotSurveyDetailsPanel driverName={driverName} driverMobile={driverMobile} lossLocation={claim.accident_location} />
-
       <section className="rounded-2xl border border-[#DFE8F4] bg-white px-4 py-4 shadow-[0_10px_24px_rgba(7,29,73,0.04)]">
         <div className="mb-3 flex items-start justify-between gap-4">
           <div>
@@ -119,16 +117,11 @@ export function SpotSurveyWorkspace({ claim, documents, verifications = [] }: { 
             <p className="text-[18px] font-semibold text-[#071D49]">{verifiedCount}/{items.length}</p>
           </div>
         </div>
-
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {items.map((item) => <DocumentCard key={item.key} item={item} claim={claim} verification={latestVerificationForItem(item, verifications)} />)}
         </div>
-
         <div className="mt-4 grid gap-3 rounded-xl border border-[#E4ECF6] bg-[#FBFCFE] p-3 lg:grid-cols-[1fr_220px] lg:items-end">
-          <label className="block">
-            <span className="text-[12px] font-semibold text-[#071D49]">Remarks (Optional)</span>
-            <textarea className="mt-1 h-[44px] w-full resize-none rounded-lg border border-[#C9D4E3] bg-white px-3 py-2 text-[12px] text-[#071D49] outline-none" placeholder="Enter remarks here..." />
-          </label>
+          <label className="block"><span className="text-[12px] font-semibold text-[#071D49]">Remarks (Optional)</span><textarea className="mt-1 h-[44px] w-full resize-none rounded-lg border border-[#C9D4E3] bg-white px-3 py-2 text-[12px] text-[#071D49] outline-none" placeholder="Enter remarks here..." /></label>
           <button type="button" className="flex h-[44px] items-center justify-center gap-2 rounded-lg bg-[#071D49] px-4 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#12356C]">Submit &amp; Proceed <span className="text-[18px] leading-none">→</span></button>
         </div>
       </section>
@@ -142,19 +135,7 @@ function InfoStrip({ claim }: { claim: SpotSurveyClaim }) {
   const insurerRef = claim.insurer_claim_no || claim.policies?.policy_no || claim.claim_no;
   const make = claim.vehicles?.make || "-";
   const model = claim.vehicles?.model || "-";
-  return (
-    <section className="grid overflow-hidden rounded-2xl border border-[#DFE8F4] bg-[#F8FBFF] shadow-[0_6px_18px_rgba(7,29,73,0.03)] md:grid-cols-3 xl:grid-cols-5">
-      <Info icon="👤" label="Customer" title={customerName} subtitle={claim.customers?.phone ?? "-"} />
-      <Info icon="🚗" label="Vehicle No." title={claim.vehicles?.vehicle_no ?? "-"} />
-      <Info label="Make & Model" title={make} subtitle={model} logo={<ManufacturerLogo name={make} />} />
-      <Info label="Insurer" title={insurer} subtitle={insurerRef} logo={<InsurerLogo name={insurer} />} />
-      <Info icon="📅" label="Loss Date" title={formatDateShort(claim.accident_at)} />
-      <Info icon="🧾" label="Policy No." title={claim.policies?.policy_no ?? "-"} />
-      <Info icon="#" label="Control No." title={claim.claim_no} />
-      <Info icon="▣" label="Claim No." title={claim.insurer_claim_no ?? "-"} />
-      <Info icon="✓" label="Claim Status" title={claim.current_status ?? "-"} last />
-    </section>
-  );
+  return <section className="grid overflow-hidden rounded-2xl border border-[#DFE8F4] bg-[#F8FBFF] shadow-[0_6px_18px_rgba(7,29,73,0.03)] md:grid-cols-3 xl:grid-cols-5"><Info icon="👤" label="Customer" title={customerName} subtitle={claim.customers?.phone ?? "-"} /><Info icon="🚗" label="Vehicle No." title={claim.vehicles?.vehicle_no ?? "-"} /><Info label="Make & Model" title={make} subtitle={model} logo={<ManufacturerLogo name={make} />} /><Info label="Insurer" title={insurer} subtitle={insurerRef} logo={<InsurerLogo name={insurer} />} /><Info icon="📅" label="Loss Date" title={formatDateShort(claim.accident_at)} /><Info icon="🧾" label="Policy No." title={claim.policies?.policy_no ?? "-"} /><Info icon="#" label="Control No." title={claim.claim_no} /><Info icon="▣" label="Claim No." title={claim.insurer_claim_no ?? "-"} /><Info icon="✓" label="Claim Status" title={claim.current_status ?? "-"} last /></section>;
 }
 
 function Info({ icon, label, title, subtitle, logo, last = false }: { icon?: string; label: string; title: string; subtitle?: string | null; logo?: React.ReactNode; last?: boolean }) {
@@ -163,18 +144,7 @@ function Info({ icon, label, title, subtitle, logo, last = false }: { icon?: str
 
 function SpotSurveyDetailsPanel({ driverName, driverMobile, lossLocation }: { driverName: string | null; driverMobile: string | null; lossLocation: string | null }) {
   const mapHref = lossLocation ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lossLocation)}` : null;
-  return (
-    <section className="grid gap-3 rounded-xl border border-[#DFE8F4] bg-white p-3 shadow-[0_5px_14px_rgba(7,29,73,0.025)] lg:grid-cols-2">
-      <div className="rounded-xl border border-[#E2EAF4] bg-[#FBFCFE] p-3">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#68758A]">Driver Information</p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <CompactDetail icon="👤" label="Driver Name" value={driverName || "Not available"} />
-          <CompactDetail icon="☎" label="Driver's Mobile No." value={driverMobile || "Not available"} href={driverMobile ? `tel:${driverMobile}` : undefined} />
-        </div>
-      </div>
-      <LocationDetail href={mapHref} value={lossLocation || "Not available"} />
-    </section>
-  );
+  return <section className="grid gap-3 rounded-xl border border-[#DFE8F4] bg-white p-3 shadow-[0_5px_14px_rgba(7,29,73,0.025)] lg:grid-cols-2"><div className="rounded-xl border border-[#E2EAF4] bg-[#FBFCFE] p-3"><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#68758A]">Driver Information</p><div className="grid gap-2 sm:grid-cols-2"><CompactDetail icon="👤" label="Driver Name" value={driverName || "Not available"} /><CompactDetail icon="☎" label="Driver's Mobile No." value={driverMobile || "Not available"} href={driverMobile ? `tel:${driverMobile}` : undefined} /></div></div><LocationDetail href={mapHref} value={lossLocation || "Not available"} /></section>;
 }
 
 function CompactDetail({ icon, label, value, href }: { icon: string; label: string; value: string; href?: string }) {
@@ -194,37 +164,17 @@ function DocumentCard({ item, claim, verification }: { item: Item; claim: SpotSu
   const persistedVerified = Boolean(verification?.is_valid) || status === "verified";
   const invalidAttempt = verification && !verification.is_valid ? verification : undefined;
   const reuploadRequested = status === "rejected";
+  const terminalStatus = persistedVerified || reuploadRequested;
   const statusTone = persistedVerified ? "green" : reuploadRequested || invalidAttempt ? "amber" : "slate";
-  return <article className={`rounded-xl border p-3 shadow-[0_6px_16px_rgba(7,29,73,0.028)] ${persistedVerified ? "border-green-200 bg-green-50/35" : reuploadRequested || invalidAttempt ? "border-amber-200 bg-amber-50/25" : "border-[#E2EAF4] bg-white"}`}><div className="mb-2 flex items-center justify-between gap-2"><div className="flex min-w-0 items-center gap-2"><span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#F0E9FF] text-[12px] font-semibold text-[#071D49]">{item.number}</span><h2 className="truncate text-[15px] font-semibold leading-tight text-[#071D49]">{item.title}</h2></div><StatusBadge tone={statusTone} label={persistedVerified ? "Verified" : reuploadRequested ? "Reupload Needed" : invalidAttempt ? "Invalid" : statusLabel(status)} /></div><div className="grid grid-cols-[54px_1fr] gap-3"><div className={`grid h-[54px] w-[54px] place-items-center rounded-xl ${item.accent}`}><div className="text-[26px] leading-none">{item.icon}</div></div><div className="min-w-0"><p className="truncate text-[12px] font-semibold text-[#071D49]">{item.document?.file_name ?? "Document not uploaded"}</p><div className="mt-1 flex flex-wrap items-center gap-1.5"><span className="rounded bg-[#F4F7FC] px-2 py-0.5 text-[10px] font-semibold text-[#526178]">{item.documentType}</span>{item.document?.signedUrl ? <Link href={item.document.signedUrl} target="_blank" className="rounded bg-[#EAF7F0] px-2 py-0.5 text-[10px] font-semibold text-[#00875A]">Preview</Link> : null}</div><div className="mt-2 grid grid-cols-2 gap-1 text-[10px] leading-4 text-[#4B596B]"><span>Uploaded</span><span className="text-right font-semibold text-[#071D49]">{formatDateShort(item.document?.created_at)}</span><span>Status</span><span className="text-right font-semibold text-[#071D49]">{persistedVerified ? "Verified" : reuploadRequested ? "Reupload requested" : statusLabel(status)}</span></div>{persistedVerified ? <p className="mt-1 text-[10px] font-semibold text-green-700">Verification details saved</p> : reuploadRequested ? <p className="mt-1 line-clamp-2 text-[10px] font-semibold text-amber-700">{item.document?.rejection_reason ?? "Customer reupload requested."}</p> : invalidAttempt ? <p className="mt-1 line-clamp-2 text-[10px] font-semibold text-amber-700">{invalidAttempt.invalid_reason}</p> : null}</div></div><div className="mt-3 grid grid-cols-3 gap-2">{item.document ? persistedVerified ? <button disabled className="h-8 rounded-md border border-green-200 bg-green-100 text-[12px] font-semibold text-green-700">Verified</button> : <VerificationActionButton claimId={claim.id} documentId={item.document.id} itemKey={item.key} incidentDate={claim.accident_at} /> : <button disabled className="h-8 rounded-md border border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-400">Verify</button>}{item.document ? <RequestReuploadButton claimId={claim.id} documentId={item.document.id} documentTitle={item.title} /> : <button disabled className="h-8 rounded-md border border-slate-200 bg-slate-50 px-2 text-[11px] font-semibold text-slate-400">Request Reupload</button>}<ReplaceDocumentButton claimId={claim.id} customerId={claim.customer_id} documentType={item.documentType} label={item.title} /></div></article>;
+  const currentStatus = persistedVerified ? "Verified" : reuploadRequested ? "Reupload requested" : invalidAttempt ? "Invalid" : statusLabel(status);
+  return <article className={`rounded-xl border p-3 shadow-[0_6px_16px_rgba(7,29,73,0.028)] ${persistedVerified ? "border-green-200 bg-green-50/35" : reuploadRequested || invalidAttempt ? "border-amber-200 bg-amber-50/25" : "border-[#E2EAF4] bg-white"}`}><div className="mb-2 flex items-center justify-between gap-2"><div className="flex min-w-0 items-center gap-2"><span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#F0E9FF] text-[12px] font-semibold text-[#071D49]">{item.number}</span><h2 className="truncate text-[15px] font-semibold leading-tight text-[#071D49]">{item.title}</h2></div><StatusBadge tone={statusTone} label={persistedVerified ? "Verified" : reuploadRequested ? "Reupload Needed" : invalidAttempt ? "Invalid" : statusLabel(status)} /></div><div className="grid grid-cols-[54px_1fr] gap-3"><div className={`grid h-[54px] w-[54px] place-items-center rounded-xl ${item.accent}`}><div className="text-[26px] leading-none">{item.icon}</div></div><div className="min-w-0"><p className="truncate text-[12px] font-semibold text-[#071D49]">{item.document?.file_name ?? "Document not uploaded"}</p><div className="mt-1 flex flex-wrap items-center gap-1.5"><span className="rounded bg-[#F4F7FC] px-2 py-0.5 text-[10px] font-semibold text-[#526178]">{item.documentType}</span>{item.document?.signedUrl ? <Link href={item.document.signedUrl} target="_blank" className="rounded bg-[#EAF7F0] px-2 py-0.5 text-[10px] font-semibold text-[#00875A]">Preview</Link> : null}</div><div className="mt-2 grid grid-cols-2 gap-1 text-[10px] leading-4 text-[#4B596B]"><span>Uploaded</span><span className="text-right font-semibold text-[#071D49]">{formatDateShort(item.document?.created_at)}</span><span>Status</span><span className="text-right font-semibold text-[#071D49]">{currentStatus}</span></div>{persistedVerified ? <p className="mt-1 text-[10px] font-semibold text-green-700">Verification details saved</p> : reuploadRequested ? <p className="mt-1 line-clamp-2 text-[10px] font-semibold text-amber-700">{item.document?.rejection_reason ?? "Customer reupload requested."}</p> : invalidAttempt ? <p className="mt-1 line-clamp-2 text-[10px] font-semibold text-amber-700">{invalidAttempt.invalid_reason}</p> : null}</div></div>{terminalStatus ? <div className="mt-3 rounded-md border border-[#DCE7F5] bg-white px-3 py-2 text-center text-[12px] font-semibold text-[#071D49]">Current Status: {currentStatus}</div> : <div className="mt-3 grid grid-cols-3 gap-2">{item.document ? <VerificationActionButton claimId={claim.id} documentId={item.document.id} itemKey={item.key} incidentDate={claim.accident_at} /> : <button disabled className="h-8 rounded-md border border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-400">Verify</button>}{item.document ? <RequestReuploadButton claimId={claim.id} documentId={item.document.id} documentTitle={item.title} /> : <button disabled className="h-8 rounded-md border border-slate-200 bg-slate-50 px-2 text-[11px] font-semibold text-slate-400">Reupload</button>}<ReplaceDocumentButton claimId={claim.id} customerId={claim.customer_id} documentType={item.documentType} label={item.title} /></div>}</article>;
 }
 
-function StatusBadge({ tone, label }: { tone: "green" | "amber" | "slate"; label: string }) {
-  const className = tone === "green" ? "border-green-200 bg-green-100 text-green-700" : tone === "amber" ? "border-amber-200 bg-amber-100 text-amber-700" : "border-slate-200 bg-slate-100 text-slate-600";
-  return <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${className}`}>{label}</span>;
-}
-
-function buildDocumentItems(documents: SpotSurveyDocument[]): Item[] {
-  const doc = (key: keyof typeof aliases) => documents.find((d) => aliases[key].includes(d.document_type.toLowerCase()) && d.verification_status !== "rejected") ?? documents.find((d) => aliases[key].includes(d.document_type.toLowerCase())) ?? null;
-  return [{ key: "rc", number: 1, title: "RC Copy", icon: "📄", accent: "bg-[#F1ECFF]", documentType: "Registration certificate", document: doc("rc") }, { key: "insurance", number: 2, title: "Insurance Copy", icon: "📃", accent: "bg-[#FFF3D9]", documentType: "Policy copy", document: doc("insurance") }, { key: "dl", number: 3, title: "Driving Licence Copy", icon: "🪪", accent: "bg-[#EAF8EF]", documentType: "Driving licence", document: doc("dl") }, { key: "gr", number: 4, title: "GR / Load Challan Copy", icon: "🚚", accent: "bg-[#FFF1E6]", documentType: "GR Copy / Road Challan", document: doc("gr") }];
-}
-
-function ManufacturerLogo({ name }: { name: string }) {
-  const brand = findBrand(name, vehicleBrandLogos);
-  if (!brand) return <span className="text-[14px] font-bold text-[#003A83]">{name && name !== "-" ? name.charAt(0).toUpperCase() : "V"}</span>;
-  return <img src={brand.src} alt={brand.label} className="max-h-6 max-w-9 object-contain" />;
-}
-
-function InsurerLogo({ name }: { name: string }) {
-  const brand = findBrand(name, insurerBrandLogos);
-  if (!brand) return <span className="text-[8px] font-bold uppercase text-[#003A83]">ins</span>;
-  return <img src={brand.src} alt={brand.label} className="max-h-6 max-w-10 object-contain" />;
-}
-
-function findBrand(name: string, map: Record<string, BrandLogo>) {
-  const normalized = normalizeBrand(name);
-  return map[normalized] ?? Object.entries(map).find(([key]) => normalized.includes(key) || key.includes(normalized))?.[1];
-}
-
+function StatusBadge({ tone, label }: { tone: "green" | "amber" | "slate"; label: string }) { const className = tone === "green" ? "border-green-200 bg-green-100 text-green-700" : tone === "amber" ? "border-amber-200 bg-amber-100 text-amber-700" : "border-slate-200 bg-slate-100 text-slate-600"; return <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${className}`}>{label}</span>; }
+function buildDocumentItems(documents: SpotSurveyDocument[]): Item[] { const doc = (key: keyof typeof aliases) => documents.find((d) => aliases[key].includes(d.document_type.toLowerCase()) && d.verification_status !== "rejected") ?? documents.find((d) => aliases[key].includes(d.document_type.toLowerCase())) ?? null; return [{ key: "rc", number: 1, title: "RC Copy", icon: "📄", accent: "bg-[#F1ECFF]", documentType: "Registration certificate", document: doc("rc") }, { key: "insurance", number: 2, title: "Insurance Copy", icon: "📃", accent: "bg-[#FFF3D9]", documentType: "Policy copy", document: doc("insurance") }, { key: "dl", number: 3, title: "Driving Licence Copy", icon: "🪪", accent: "bg-[#EAF8EF]", documentType: "Driving licence", document: doc("dl") }, { key: "gr", number: 4, title: "GR / Load Challan Copy", icon: "🚚", accent: "bg-[#FFF1E6]", documentType: "GR Copy / Road Challan", document: doc("gr") }]; }
+function ManufacturerLogo({ name }: { name: string }) { const brand = findBrand(name, vehicleBrandLogos); if (!brand) return <span className="text-[14px] font-bold text-[#003A83]">{name && name !== "-" ? name.charAt(0).toUpperCase() : "V"}</span>; return <img src={brand.src} alt={brand.label} className="max-h-6 max-w-9 object-contain" />; }
+function InsurerLogo({ name }: { name: string }) { const brand = findBrand(name, insurerBrandLogos); if (!brand) return <span className="text-[8px] font-bold uppercase text-[#003A83]">ins</span>; return <img src={brand.src} alt={brand.label} className="max-h-6 max-w-10 object-contain" />; }
+function findBrand(name: string, map: Record<string, BrandLogo>) { const normalized = normalizeBrand(name); return map[normalized] ?? Object.entries(map).find(([key]) => normalized.includes(key) || key.includes(normalized))?.[1]; }
 function normalizeBrand(value: string) { return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
 function latestVerificationForItem(item: Item, verifications: SpotSurveyVerification[]) { return verifications.find((row) => item.document?.id && row.document_id === item.document.id) ?? verifications.find((row) => row.verification_type === item.key && row.is_valid) ?? verifications.find((row) => row.verification_type === item.key); }
 function isItemVerified(item: Item, verifications: SpotSurveyVerification[]) { return item.document?.verification_status === "verified" || Boolean(latestVerificationForItem(item, verifications)?.is_valid); }
