@@ -90,20 +90,20 @@ function NotificationMenu({ groups, count }: { groups: NotificationGroup[]; coun
   const displayCount = count > 99 ? "99+" : String(count);
 
   return (
-    <div className="group/notify relative flex h-[52px] flex-col items-center justify-center gap-0.5 text-[#071D49]">
-      <Link href="/dashboard#manager-action" className="flex flex-col items-center justify-center gap-0.5" aria-label="Notifications">
-        <span className="relative grid h-7 w-7 place-items-center rounded-full bg-white text-[17px] shadow-[0_0_0_1px_rgba(7,29,73,0.08)] transition group-hover/notify:bg-[#F1F6FF]">
-          ▾
+    <details className="relative flex h-[52px] flex-col items-center justify-center gap-0.5 text-[#071D49]">
+      <summary className="flex cursor-pointer list-none flex-col items-center justify-center gap-0.5 [&::-webkit-details-marker]:hidden" aria-label="Open action inbox">
+        <span className="relative grid h-7 w-7 place-items-center rounded-full bg-white text-[16px] shadow-[0_0_0_1px_rgba(7,29,73,0.08)] transition hover:bg-[#F1F6FF]">
+          🔔
           {count ? <span className="absolute -right-2 -top-1 grid min-h-4 min-w-4 place-items-center rounded-full bg-[#E21D35] px-1 text-[9px] font-semibold text-white ring-1 ring-white">{displayCount}</span> : null}
         </span>
         <span className="hidden text-[10.5px] font-medium leading-none text-[#1E2A44] sm:block">Notifications</span>
-      </Link>
+      </summary>
 
-      <div className="invisible absolute right-0 top-[54px] z-50 w-[360px] translate-y-1 rounded-2xl border border-[#DCE7F5] bg-white opacity-0 shadow-[0_18px_42px_rgba(7,29,73,0.14)] transition group-hover/notify:visible group-hover/notify:translate-y-0 group-hover/notify:opacity-100 group-focus-within/notify:visible group-focus-within/notify:translate-y-0 group-focus-within/notify:opacity-100">
+      <div className="absolute right-0 top-[54px] z-50 w-[360px] rounded-2xl border border-[#DCE7F5] bg-white shadow-[0_18px_42px_rgba(7,29,73,0.14)]">
         <div className="flex items-center justify-between border-b border-[#E6EEF7] px-4 py-3">
           <div>
             <p className="text-[13px] font-semibold text-[#071D49]">Action Inbox</p>
-            <p className="mt-0.5 text-[11px] text-[#68758A]">Grouped pending customer activity</p>
+            <p className="mt-0.5 text-[11px] text-[#68758A]">New, seen and in-progress customer actions</p>
           </div>
           <span className="rounded-full bg-[#FFF4E5] px-2.5 py-1 text-[11px] font-semibold text-[#A85D00]">{count} pending</span>
         </div>
@@ -131,10 +131,10 @@ function NotificationMenu({ groups, count }: { groups: NotificationGroup[]; coun
         )}
 
         <div className="border-t border-[#E6EEF7] px-4 py-2.5 text-right">
-          <Link href="/dashboard#manager-action" className="text-[11.5px] font-semibold text-[#174EA6] hover:text-[#071D49]">Open dashboard inbox</Link>
+          <Link href="/claims" className="text-[11.5px] font-semibold text-[#174EA6] hover:text-[#071D49]">Open claims queue</Link>
         </div>
       </div>
-    </div>
+    </details>
   );
 }
 
@@ -143,7 +143,7 @@ async function getNotificationRows() {
   const { data } = await supabase
     .from("customer_activity_events")
     .select("id, event_type, title, priority, status, created_at")
-    .in("status", ["new", "in_progress"])
+    .in("status", ["new", "seen", "in_progress"])
     .order("created_at", { ascending: false })
     .limit(80)
     .returns<NotificationRow[]>();
