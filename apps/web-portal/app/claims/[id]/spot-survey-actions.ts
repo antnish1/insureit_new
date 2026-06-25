@@ -36,6 +36,20 @@ async function loadClaim(claimId: string) {
   return data;
 }
 
+function collectVerificationDetails(formData: FormData) {
+  const ignored = new Set(["claimId", "documentId"]);
+  const details: Record<string, string> = {};
+
+  for (const [key, value] of formData.entries()) {
+    if (ignored.has(key) || typeof value !== "string") continue;
+    const cleanValue = value.trim();
+    if (!cleanValue) continue;
+    details[key] = cleanValue;
+  }
+
+  return details;
+}
+
 export async function verifySpotSurveyDocument(formData: FormData): Promise<ActionResult> {
   try {
     const documentId = String(formData.get("documentId") ?? "").trim();
@@ -45,6 +59,7 @@ export async function verifySpotSurveyDocument(formData: FormData): Promise<Acti
     const profile = await currentProfile();
     const claim = await loadClaim(claimId);
     const supabase = await createServerSupabaseClient();
+    const verificationDetails = collectVerificationDetails(formData);
 
     const { data: document, error: documentError } = await supabase
       .from("claim_documents")
@@ -75,6 +90,7 @@ export async function verifySpotSurveyDocument(formData: FormData): Promise<Acti
         verification_type: "spot_survey_document",
         document_type: document.document_type,
         document_id: document.id,
+        ...verificationDetails,
         verified: true,
         verified_at: new Date().toISOString()
       },
