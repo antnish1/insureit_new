@@ -6,7 +6,6 @@ import { getManagerDashboardData } from "@/lib/manager-dashboard";
 type WorkflowGroup = {
   key: string;
   label: string;
-  description: string;
   count: number;
   oldestLabel: string;
   href: string;
@@ -28,35 +27,24 @@ export default async function DashboardPage() {
 
   return (
     <ClaimManagerShell title="Claim Manager Desk" activeNav="dashboard">
-      <div className="space-y-4 pb-8">
+      <div className="space-y-3 pb-6">
         <section className="overflow-hidden rounded-2xl border border-[#DCE7F5] bg-white shadow-[0_10px_28px_rgba(7,29,73,0.05)]">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E6EEF7] px-4 py-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#174EA6]">Claim Manager Operations Desk</p>
-              <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-[#071D49]">{greeting}, {displayName}</h1>
-              <p className="mt-0.5 text-[12.5px] text-[#68758A]">A simplified workflow view for all claims. Customer actions now live in the notification inbox.</p>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#174EA6]">Claim Manager</p>
+              <h1 className="mt-0.5 text-[20px] font-semibold tracking-tight text-[#071D49]">{greeting}, {displayName}</h1>
             </div>
-            <Link href="/claims" className="inline-flex h-9 items-center rounded-lg bg-[#071D49] px-4 text-[12px] font-semibold text-white shadow-sm transition hover:bg-[#12356C]">
-              Open Claims Queue
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <HeaderMetric label="Total" value={totalClaims} />
+              <HeaderMetric label="Open" value={activeClaims} />
+              <HeaderMetric label="Closed" value={closedClaims} />
+              <Link href="/claims" className="ml-1 inline-flex h-8 items-center rounded-lg bg-[#071D49] px-3 text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#12356C]">
+                Claims Queue
+              </Link>
+            </div>
           </div>
 
-          <div className="grid gap-2 border-b border-[#E6EEF7] bg-[#F8FBFF] px-4 py-3 sm:grid-cols-3">
-            <SummaryMetric label="Total Claims" value={totalClaims} />
-            <SummaryMetric label="Active Claims" value={activeClaims} />
-            <SummaryMetric label="Closed / Completed" value={closedClaims} />
-          </div>
-
-          <div className="px-4 py-3">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-[15px] font-semibold text-[#071D49]">Claim Workflow Board</h2>
-                <p className="mt-0.5 text-[11.5px] text-[#68758A]">Grouped stages only. No duplicate KPI cards and no long activity feeds.</p>
-              </div>
-              <span className="rounded-full bg-[#F2F6FB] px-2.5 py-1 text-[11px] font-semibold text-[#68758A]">{workflowGroups.length} workflow groups</span>
-            </div>
-            <WorkflowBoard groups={workflowGroups} />
-          </div>
+          <WorkflowBoard groups={workflowGroups} />
         </section>
 
         {dashboard.errors.length ? (
@@ -69,44 +57,43 @@ export default async function DashboardPage() {
   );
 }
 
-function SummaryMetric({ label, value }: { label: string; value: number }) {
+function HeaderMetric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-[#E1E9F3] bg-white px-3 py-2">
-      <p className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#68758A]">{label}</p>
-      <p className="mt-1 text-[24px] font-semibold leading-none tracking-tight text-[#071D49]">{value}</p>
+    <div className="flex h-8 items-center gap-2 rounded-lg border border-[#E1E9F3] bg-[#F8FBFF] px-2.5">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#68758A]">{label}</span>
+      <span className="text-[16px] font-semibold leading-none text-[#071D49]">{value}</span>
     </div>
   );
 }
 
 function WorkflowBoard({ groups }: { groups: WorkflowGroup[] }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-[#E1E9F3]">
-      <div className="hidden grid-cols-[1.5fr_0.6fr_0.8fr_110px] border-b border-[#E6EEF7] bg-[#F6F9FD] px-3 py-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#68758A] md:grid">
+    <div className="overflow-hidden">
+      <div className="grid grid-cols-[1.5fr_80px_115px_76px] border-b border-[#E6EEF7] bg-[#F6F9FD] px-3 py-1.5 text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#68758A] max-md:hidden">
         <div>Workflow Stage</div>
-        <div>Claims</div>
-        <div>Oldest</div>
+        <div className="text-right">Claims</div>
+        <div className="text-right">Oldest</div>
         <div className="text-right">Action</div>
       </div>
       <div className="divide-y divide-[#E8EEF6] bg-white">
         {groups.map((group) => (
-          <Link key={group.key} href={group.href} className="grid gap-2 px-3 py-3 transition hover:bg-[#FAFCFF] md:grid-cols-[1.5fr_0.6fr_0.8fr_110px] md:items-center">
+          <Link key={group.key} href={group.href} className="grid gap-1 px-3 py-2 transition hover:bg-[#FAFCFF] md:grid-cols-[1.5fr_80px_115px_76px] md:items-center">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className={`h-2.5 w-2.5 rounded-full ${toneDot(group.tone)}`} />
-                <p className="text-[13px] font-semibold text-[#071D49]">{group.label}</p>
+                <span className={`h-2 w-2 rounded-full ${toneDot(group.tone)}`} />
+                <p className="truncate text-[12px] font-semibold text-[#071D49]">{group.label}</p>
               </div>
-              <p className="mt-0.5 text-[11.5px] text-[#68758A]">{group.description}</p>
             </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#7A8797] md:hidden">Claims</p>
-              <p className="text-[20px] font-semibold leading-none text-[#071D49]">{group.count}</p>
+            <div className="flex items-center justify-between gap-3 md:block md:text-right">
+              <p className="text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#7A8797] md:hidden">Claims</p>
+              <p className="text-[14px] font-semibold leading-none text-[#071D49]">{group.count}</p>
             </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#7A8797] md:hidden">Oldest</p>
-              <p className="text-[11.5px] font-medium text-[#4B596B]">{group.oldestLabel}</p>
+            <div className="flex items-center justify-between gap-3 md:block md:text-right">
+              <p className="text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#7A8797] md:hidden">Oldest</p>
+              <p className="text-[10.5px] font-medium text-[#4B596B]">{group.oldestLabel}</p>
             </div>
             <div className="text-left md:text-right">
-              <span className="inline-flex rounded-lg border border-[#D6E0EC] px-3 py-1.5 text-[11px] font-semibold text-[#071D49] transition hover:border-[#174EA6] hover:bg-[#F3F7FD]">Open</span>
+              <span className="inline-flex rounded-md border border-[#D6E0EC] px-2 py-1 text-[10.5px] font-semibold text-[#071D49] transition hover:border-[#174EA6] hover:bg-[#F3F7FD]">Open</span>
             </div>
           </Link>
         ))}
@@ -124,7 +111,6 @@ function buildWorkflowGroups(dashboard: Awaited<ReturnType<typeof getManagerDash
     {
       key: "intake-documents",
       label: "Intake & Initial Documents",
-      description: "Loss report, spot intimation and first document verification.",
       count: count("loss-report", "spot-intimation"),
       oldestLabel: oldest("loss-report", "spot-intimation"),
       href: "/claims?journey=spot-intimation",
@@ -133,7 +119,6 @@ function buildWorkflowGroups(dashboard: Awaited<ReturnType<typeof getManagerDash
     {
       key: "survey",
       label: "Survey",
-      description: "Spot surveyor assignment, inspection and survey completion.",
       count: count("spot-surveyor-assigned", "spot-survey-completed", "final-surveyor"),
       oldestLabel: oldest("spot-surveyor-assigned", "spot-survey-completed", "final-surveyor"),
       href: "/claims?journey=spot-surveyor-assigned",
@@ -142,7 +127,6 @@ function buildWorkflowGroups(dashboard: Awaited<ReturnType<typeof getManagerDash
     {
       key: "final-documents",
       label: "Final Documents",
-      description: "Final document collection and verification after later claim stages.",
       count: count("final-documents", "claim-intimation"),
       oldestLabel: oldest("final-documents", "claim-intimation"),
       href: "/claims?journey=final-documents",
@@ -151,7 +135,6 @@ function buildWorkflowGroups(dashboard: Awaited<ReturnType<typeof getManagerDash
     {
       key: "approval",
       label: "Approval",
-      description: "Estimate submission, insurer review and work approval.",
       count: count("work-approval"),
       oldestLabel: oldest("work-approval"),
       href: "/claims?journey=work-approval",
@@ -160,7 +143,6 @@ function buildWorkflowGroups(dashboard: Awaited<ReturnType<typeof getManagerDash
     {
       key: "repair-billing",
       label: "Repair & Billing",
-      description: "Repair, RI, delivery order and final bill movement.",
       count: count("under-repair", "ri-stage", "do-stage", "vehicle-release"),
       oldestLabel: oldest("under-repair", "ri-stage", "do-stage", "vehicle-release"),
       href: "/claims?journey=under-repair",
@@ -169,7 +151,6 @@ function buildWorkflowGroups(dashboard: Awaited<ReturnType<typeof getManagerDash
     {
       key: "settlement",
       label: "Settlement",
-      description: "Payment advice, settlement under process and claim completion.",
       count: count("payment-advice-received"),
       oldestLabel: oldest("payment-advice-received"),
       href: "/claims?journey=payment-advice-received",
@@ -178,7 +159,6 @@ function buildWorkflowGroups(dashboard: Awaited<ReturnType<typeof getManagerDash
     {
       key: "closed",
       label: "Closed / Completed",
-      description: "Settled and closed claim journeys.",
       count: count("journey-complete"),
       oldestLabel: oldest("journey-complete"),
       href: "/claims?queue=closed",
@@ -189,10 +169,10 @@ function buildWorkflowGroups(dashboard: Awaited<ReturnType<typeof getManagerDash
 
 function oldestLabel(labels: string[]) {
   const days = labels.map((label) => oldestAgeDays(label)).filter((value) => value > 0);
-  if (!labels.length) return "No claims";
-  if (!days.length) return labels.some((label) => label === "Updated today") ? "Updated today" : "No pending claims";
+  if (!labels.length) return "-";
+  if (!days.length) return labels.some((label) => label === "Updated today") ? "Today" : "-";
   const max = Math.max(...days);
-  return max === 1 ? "Oldest 1 day" : `Oldest ${max} days`;
+  return max === 1 ? "1 day" : `${max} days`;
 }
 
 function toneDot(tone: WorkflowGroup["tone"]) {
