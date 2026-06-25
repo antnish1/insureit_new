@@ -163,21 +163,29 @@ function Info({ icon, label, title, subtitle, logo, last = false }: { icon?: str
 function SpotSurveyDetailsPanel({ driverName, driverMobile, lossLocation }: { driverName: string | null; driverMobile: string | null; lossLocation: string | null }) {
   const mapHref = lossLocation ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lossLocation)}` : null;
   return (
-    <section className="rounded-xl border border-[#DFE8F4] bg-white px-3 py-2 shadow-[0_5px_14px_rgba(7,29,73,0.025)]">
-      <div className="grid gap-2 lg:grid-cols-[180px_190px_minmax(0,1fr)]">
-        <CompactDetail icon="👤" label="Driver Name" value={driverName || "Not available"} />
-        <CompactDetail icon="☎" label="Driver's Mobile No." value={driverMobile || "Not available"} href={driverMobile ? `tel:${driverMobile}` : undefined} />
-        <CompactDetail icon="📍" label="Loss Location" value={lossLocation || "Not available"} href={mapHref ?? undefined} isWide />
+    <section className="grid gap-3 rounded-xl border border-[#DFE8F4] bg-white p-3 shadow-[0_5px_14px_rgba(7,29,73,0.025)] lg:grid-cols-2">
+      <div className="rounded-xl border border-[#E2EAF4] bg-[#FBFCFE] p-3">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#68758A]">Driver Information</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <CompactDetail icon="👤" label="Driver Name" value={driverName || "Not available"} />
+          <CompactDetail icon="☎" label="Driver's Mobile No." value={driverMobile || "Not available"} href={driverMobile ? `tel:${driverMobile}` : undefined} />
+        </div>
       </div>
+      <LocationDetail href={mapHref} value={lossLocation || "Not available"} />
     </section>
   );
 }
 
-function CompactDetail({ icon, label, value, href, isWide = false }: { icon: string; label: string; value: string; href?: string; isWide?: boolean }) {
-  const valueClass = isWide ? "whitespace-normal break-words text-[13px] font-semibold leading-5 text-[#071D49]" : "truncate text-[13px] font-semibold text-[#071D49]";
-  const content = <><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#EEF4FC] text-[16px]">{icon}</span><span className="min-w-0 flex-1"><span className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[#68758A]">{label}</span><span className={`block ${valueClass}`}>{value}</span></span></>;
-  if (href) return <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined} className="flex min-h-[44px] items-start gap-2 rounded-lg border border-[#E2EAF4] bg-[#FBFCFE] px-3 py-2 transition hover:border-[#174EA6] hover:bg-[#F4F8FF]">{content}</a>;
-  return <div className="flex min-h-[44px] items-start gap-2 rounded-lg border border-[#E2EAF4] bg-[#FBFCFE] px-3 py-2">{content}</div>;
+function CompactDetail({ icon, label, value, href }: { icon: string; label: string; value: string; href?: string }) {
+  const content = <><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#EEF4FC] text-[16px]">{icon}</span><span className="min-w-0 flex-1"><span className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[#68758A]">{label}</span><span className="block whitespace-normal break-words text-[13px] font-semibold leading-5 text-[#071D49]">{value}</span></span></>;
+  if (href) return <a href={href} className="flex min-h-[44px] items-start gap-2 rounded-lg border border-[#E2EAF4] bg-white px-3 py-2 transition hover:border-[#174EA6] hover:bg-[#F4F8FF]">{content}</a>;
+  return <div className="flex min-h-[44px] items-start gap-2 rounded-lg border border-[#E2EAF4] bg-white px-3 py-2">{content}</div>;
+}
+
+function LocationDetail({ href, value }: { href: string | null; value: string }) {
+  const inner = <><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#EEF4FC] text-[17px]">📍</span><div><p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#68758A]">Loss Location</p><p className="text-[11px] font-semibold text-[#174EA6]">Click to open in Google Maps ↗</p></div></div><span className="rounded-full border border-[#BFD3F7] bg-[#EEF4FF] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#174EA6]">Map</span></div><p className="mt-2 whitespace-normal break-words text-[13px] font-semibold leading-5 text-[#071D49]">{value}</p></>;
+  if (!href) return <div className="rounded-xl border border-[#E2EAF4] bg-[#FBFCFE] p-3">{inner}</div>;
+  return <a href={href} target="_blank" rel="noreferrer" className="block cursor-pointer rounded-xl border border-[#A9C6F5] bg-[#F4F8FF] p-3 shadow-[0_4px_12px_rgba(23,78,166,0.08)] transition hover:border-[#174EA6] hover:bg-[#EDF5FF] hover:shadow-[0_8px_18px_rgba(23,78,166,0.14)]">{inner}</a>;
 }
 
 function DocumentCard({ item, claim, verification }: { item: Item; claim: SpotSurveyClaim; verification?: SpotSurveyVerification }) {
