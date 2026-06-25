@@ -60,9 +60,10 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
 
   const queue = operationsQueueForStatus(claim.current_status);
   const backHref = queue ? `/claims?queue=${queue.key}` : "/claims";
+  const title = `Documents Verification - ${claim.claim_no}${claim.insurer_claim_no ? ` / ${claim.insurer_claim_no}` : ""}`;
 
   return (
-    <ClaimManagerShell title="Spot Survey Verification" backHref={backHref}>
+    <ClaimManagerShell title={title} backHref={backHref}>
       <SpotSurveyWorkspace claim={claim} documents={signedDocs} verifications={verificationRows ?? []} />
     </ClaimManagerShell>
   );
