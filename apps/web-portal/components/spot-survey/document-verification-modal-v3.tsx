@@ -19,21 +19,25 @@ const rcRows = [
   { dateName: "national_permit_valid_upto", statusName: "national_permit_status", label: "National Permit Valid Upto" }
 ];
 
-export function DocumentVerificationModalButton({ claimId, documentId, modalType, incidentDate }: { claimId: string; documentId: string; modalType: ModalType; incidentDate?: string | null }) {
+export function DocumentVerificationModalButton({ claimId, documentId, modalType, incidentDate, policyStartDate, policyEndDate }: { claimId: string; documentId: string; modalType: ModalType; incidentDate?: string | null; policyStartDate?: string | null; policyEndDate?: string | null }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<Result | null>(null);
   const [saved, setSaved] = useState(false);
   const [rcDates, setRcDates] = useState<Record<string, string>>({});
-  const [insurance, setInsurance] = useState<InsuranceState>({ start: "", end: "", ncb: "", policy: "", gvw: "" });
+  const policyStart = toDateOnly(policyStartDate) ?? "";
+  const policyEnd = toDateOnly(policyEndDate) ?? "";
+  const [insurance, setInsurance] = useState<InsuranceState>({ start: policyStart, end: policyEnd, ncb: "", policy: "", gvw: "" });
   const incident = toDateOnly(incidentDate);
 
   const rcComplete = rcRows.every((row) => Boolean(rcDates[row.dateName]));
   const rcValid = rcRows.every((row) => getStatus(rcDates[row.dateName], incident) === "Valid");
   const insuranceStatus = getStatus(insurance.end, incident);
-  const insuranceComplete = Boolean(insurance.start && insurance.end && insurance.ncb && insurance.policy && insurance.gvw);
-  const insuranceValid = Boolean(insurance.start && insurance.end && insurance.start <= insurance.end && insuranceStatus === "Valid");
+  const dateOrderInvalid = Boolean(insurance.start && insurance.end && insurance.start > insurance.end);
+  const policyDatesAvailable = Boolean(insurance.start && insurance.end);
+  const insuranceComplete = Boolean(policyDatesAvailable && insurance.ncb && insurance.policy && insurance.gvw);
+  const insuranceValid = Boolean(policyDatesAvailable && !dateOrderInvalid && insuranceStatus === "Valid");
   const canSave = modalType === "rc" ? rcComplete && rcValid : insuranceComplete && insuranceValid;
 
   const message = useMemo(() => {
@@ -42,10 +46,11 @@ export function DocumentVerificationModalButton({ claimId, documentId, modalType
       if (!rcValid) return "One or more RC fields are invalid. Verification is blocked.";
       return "All RC fields are valid.";
     }
+    if (!policyDatesAvailable) return "Policy start and end date are not available in customer policy details.";
     if (!insuranceComplete) return "Enter all required insurance details.";
     if (!insuranceValid) return "Insurance date validity is invalid. Verification is blocked.";
     return "Insurance details are valid.";
-  }, [modalType, rcComplete, rcValid, insuranceComplete, insuranceValid]);
+  }, [modalType, rcComplete, rcValid, policyDatesAvailable, insuranceComplete, insuranceValid]);
 
   return (
     <div>
@@ -125,15 +130,15 @@ function InsuranceRows({ incidentDate, values, setValues }: { incidentDate: stri
     <div className="divide-y divide-[#E6EEF7]">
       <div className="grid grid-cols-[52px_1fr_210px_210px] items-center gap-4 px-6 py-4">
         <NumberBadge number={1} />
-        <p className="text-[14px] font-semibold text-[#071D49]">Insurance Start Date</p>
-        <DateInput label="Start Date" name="insurance_start_date" value={values.start} onChange={(value) => setValues((prev) => ({ ...prev, start: value }))} invalid={dateOrderInvalid} />
-        <DateInput label="End Date" name="insurance_end_date" value={values.end} onChange={(value) => setValues((prev) => ({ ...prev, end: value }))} invalid={endStatus === "Invalid" || dateOrderInvalid} valid={endStatus === "Valid" && !dateOrderInvalid} />
+        <p className="text-[14px] font-semibold text-[#071D49]">Insurance Policy Period</p>
+        <ReadonlyDateInput label="Start Date" name="insurance_start_date" value={values.start} invalid={dateOrderInvalid || !values.start} />
+        <ReadonlyDateInput label="End Date" name="insurance_end_date" value={values.end} invalid={endStatus === "Invalid" || dateOrderInvalid || !values.end} valid={endStatus === "Valid" && !dateOrderInvalid} />
       </div>
       <input type="hidden" name="policy_status" value={dateOrderInvalid ? "Invalid" : endStatus} />
-      <InsuranceRow number={2} label="NCB Verification"><div className="relative"><input name="ncb_percent" type="number" value={values.ncb} onChange={(event) => setValues((prev) => ({ ...prev, ncb: event.target.value }))} placeholder="Enter NCB %" className="h-10 w-full rounded-md border border-[#C9D4E3] px-3 pr-8 text-[13px]" /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-[#68758A]">%</span></div></InsuranceRow>
+      <InsuranceRow number={2} label="NCB Verification"><select name="ncb_verified" value={values.ncb} onChange={(event) => setValues((prev) => ({ ...prev, ncb: event.target.value }))} className="h-10 w-full rounded-md border border-[#C9D4E3] bg-white px-3 text-[13px] text-[#071D49]"><option value="">Select</option><option value="Yes">Yes</option><option value="No">No</option></select></InsuranceRow>
       <InsuranceRow number={3} label="Hazardous or Non Hazardous Policy"><select name="policy_type_check" value={values.policy} onChange={(event) => setValues((prev) => ({ ...prev, policy: event.target.value }))} className="h-10 w-full rounded-md border border-[#C9D4E3] px-3 text-[13px]"><option value="">Select</option><option>Hazardous</option><option>Non Hazardous</option><option>Not Mentioned</option></select></InsuranceRow>
       <InsuranceRow number={4} label="GVW Mention (in Kgs)"><div className="relative"><input name="gvw_kg" type="number" value={values.gvw} onChange={(event) => setValues((prev) => ({ ...prev, gvw: event.target.value }))} placeholder="Enter GVW" className="h-10 w-full rounded-md border border-[#C9D4E3] px-3 pr-12 text-[13px]" /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-[#68758A]">Kgs</span></div></InsuranceRow>
-      <div className="px-6 py-3"><div className={`rounded-lg border px-3 py-2 text-[12px] font-semibold ${endStatus === "Invalid" || dateOrderInvalid ? "border-red-200 bg-red-50 text-red-700" : endStatus === "Valid" ? "border-green-200 bg-green-50 text-green-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>Insurance validity status: {dateOrderInvalid ? "Invalid - start date is after end date" : endStatus || "Select end date"}</div></div>
+      <div className="px-6 py-3"><div className={`rounded-lg border px-3 py-2 text-[12px] font-semibold ${endStatus === "Invalid" || dateOrderInvalid ? "border-red-200 bg-red-50 text-red-700" : endStatus === "Valid" ? "border-green-200 bg-green-50 text-green-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>Insurance validity status: {dateOrderInvalid ? "Invalid - start date is after end date" : endStatus || "Policy date unavailable"}</div></div>
     </div>
   );
 }
@@ -142,8 +147,8 @@ function InsuranceRow({ number, label, children }: { number: number; label: stri
   return <div className="grid grid-cols-[52px_1fr_420px] items-center gap-4 px-6 py-4"><NumberBadge number={number} /><p className="text-[14px] font-semibold text-[#071D49]">{label} <span className="text-red-600">*</span></p>{children}</div>;
 }
 
-function DateInput({ label, name, value, onChange, invalid = false, valid = false }: { label: string; name: string; value: string; onChange: (value: string) => void; invalid?: boolean; valid?: boolean }) {
-  return <label><span className="mb-1 block text-[10px] font-semibold text-[#071D49]">{label} <span className="text-red-600">*</span></span><input name={name} type="date" value={value} onChange={(event) => onChange(event.target.value)} className={`h-10 w-full rounded-md border bg-white px-3 text-[13px] text-[#071D49] ${invalid ? "border-red-300" : valid ? "border-green-300" : "border-[#C9D4E3]"}`} /></label>;
+function ReadonlyDateInput({ label, name, value, invalid = false, valid = false }: { label: string; name: string; value: string; invalid?: boolean; valid?: boolean }) {
+  return <label><span className="mb-1 block text-[10px] font-semibold text-[#071D49]">{label} <span className="text-red-600">*</span></span><input name={name} type="date" value={value} readOnly disabled className={`h-10 w-full rounded-md border bg-slate-50 px-3 text-[13px] text-[#071D49] ${invalid ? "border-red-300" : valid ? "border-green-300" : "border-[#C9D4E3]"}`} /><input type="hidden" name={name} value={value} /></label>;
 }
 
 function StatusBox({ status }: { status: Status }) {
