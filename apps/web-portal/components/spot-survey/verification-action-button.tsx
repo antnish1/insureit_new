@@ -10,5 +10,9 @@ export function VerificationActionButton({ claimId, documentId, itemKey, inciden
     return <DocumentVerificationModalButton claimId={claimId} documentId={documentId} modalType="insurance" incidentDate={incidentDate} policyStartDate={policyStartDate} policyEndDate={policyEndDate} />;
   }
 
+  if (itemKey === "gr") {
+    return <DocumentVerificationModalButton claimId={claimId} documentId={documentId} modalType="gr" incidentDate={incidentDate} />;
+  }
+
   return <VerifyDocumentButton claimId={claimId} documentId={documentId} />;
 }
