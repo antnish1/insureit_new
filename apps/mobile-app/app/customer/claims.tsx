@@ -100,6 +100,7 @@ export default function ClaimsScreen() {
         const insurerId = claim.insurance_company_id || policy?.insurance_company_id;
         const insurer = insurers.find((item) => item.id === insurerId);
         const tone = claimTone(claim.current_status);
+        const policyExpiredBeforeIncident = isIncidentAfterPolicyExpiry(claim, policy);
 
         return (
           <Pressable key={claim.id} accessibilityRole="button" onPress={() => router.push({ pathname: '/customer/claim-detail', params: { id: claim.id } })} style={[styles.claimCard, { backgroundColor: tone.background, borderColor: tone.border }]}>
@@ -136,6 +137,13 @@ export default function ClaimsScreen() {
               <InfoPair leftLabel="Policy" leftValue={policy?.policy_no ?? '-'} rightLabel="Insurer" rightValue={insurer?.name ?? '-'} />
               <InfoPair leftLabel="Expiry" leftValue={policy ? formatDate(policy.end_date) : '-'} rightLabel="Incident Date" rightValue={claim.accident_at ? formatDate(claim.accident_at) : '-'} />
             </View>
+
+            {policyExpiredBeforeIncident ? (
+              <View style={styles.expiredClaimWarning}>
+                <MaterialCommunityIcons name="alert-octagon-outline" size={16} color="#B42318" />
+                <Text style={styles.expiredClaimWarningText}>Policy expired before loss date</Text>
+              </View>
+            ) : null}
 
             <View style={styles.cardFooter}>
               <Text style={styles.footerHint}>View claim details</Text>
@@ -208,6 +216,21 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function isIncidentAfterPolicyExpiry(claim: Claim, policy?: Policy | null) {
+  const incident = claim.accident_at ? new Date(claim.accident_at) : null;
+  const expiry = policyExpiryEndOfDay(policy?.end_date);
+  if (!incident || Number.isNaN(incident.getTime()) || !expiry) return false;
+  return incident.getTime() > expiry.getTime();
+}
+
+function policyExpiryEndOfDay(value?: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+  const parsed = new Date(year, month - 1, day, 23, 59, 59, 999);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
 const styles = StyleSheet.create({
   searchSection: { marginTop: -22, marginBottom: 10 },
   searchHeading: { color: palette.navy, fontSize: 13, fontWeight: '900', marginBottom: 7 },
@@ -239,6 +262,8 @@ const styles = StyleSheet.create({
   infoPairHalf: { flex: 1, minWidth: 0 },
   infoPairText: { color: palette.ink, fontSize: 11.1, lineHeight: 15, fontWeight: '800' },
   infoPairLabel: { color: palette.slate, fontSize: 10.2, fontWeight: '900' },
+  expiredClaimWarning: { marginTop: 9, borderRadius: 12, borderWidth: 1, borderColor: '#FDA29B', backgroundColor: '#FEF3F2', paddingHorizontal: 9, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  expiredClaimWarningText: { color: '#B42318', fontSize: 10.8, fontWeight: '900', flex: 1 },
 
   cardFooter: { marginTop: 10, paddingTop: 9, borderTopWidth: 1, borderTopColor: '#E5ECF5', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   footerHint: { color: palette.slate, fontSize: 11.5, fontWeight: '900' },

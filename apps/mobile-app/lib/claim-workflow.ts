@@ -87,9 +87,9 @@ export function queueForStatus(status: ClaimStatus) {
 
 export function customerStageCopy(status: ClaimStatus) {
   if (status === 'Accident Reported') return 'Your accident report has been received. Upload clear documents so the claim desk can begin verification.';
-  if (status === 'Initial Documents Pending' || status === 'Documents Pending') return 'The claim desk needs corrected or missing initial documents from you.';
-  if (status === 'Initial Documents Verification Pending' || status === 'Initial Documents Submitted' || status === 'Documents Submitted') return 'Your initial documents are waiting for claim desk verification.';
-  if (status === 'Initial Documents Verified') return 'Initial documents are verified. The claim team will appoint the surveyor next.';
+  if (status === 'Initial Documents Pending' || status === 'Documents Pending') return 'LOSS SUBMITTED, WAIT FOR SPOT DEPUTATION.';
+  if (status === 'Initial Documents Verification Pending' || status === 'Initial Documents Submitted' || status === 'Documents Submitted') return 'LOSS SUBMITTED, WAIT FOR SPOT DEPUTATION.';
+  if (status === 'Initial Documents Verified') return 'LOSS SUBMITTED, WAIT FOR SPOT DEPUTATION.';
   if (status === 'Claim Intimated') return 'The insurer has been informed and the claim reference process has started.';
   if (status === 'Surveyor Appointed') return 'A surveyor has been assigned. Keep the vehicle and repair estimate ready.';
   if (status === 'Vehicle Inspected') return 'Inspection is complete. The repair estimate and approval steps are next.';

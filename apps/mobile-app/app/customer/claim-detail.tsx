@@ -94,6 +94,7 @@ export default function ClaimDetailScreen() {
   const canUploadDocuments = shouldShowUploadDocuments(claim, documents);
   const tone = claimTone(claim.current_status);
   const progress = journeyProgress(claim.current_status);
+  const policyExpiredBeforeIncident = isIncidentAfterPolicyExpiry(claim, policy);
 
   return (
     <Screen title="Claim Detail" showLogout showTitleHeader={false}>
@@ -139,6 +140,16 @@ export default function ClaimDetailScreen() {
           <InfoPair leftLabel="Policy" leftValue={policy?.policy_no ?? '-'} rightLabel="Insurer" rightValue={insurer?.name ?? '-'} />
           <InfoPair leftLabel="Last Update" leftValue={formatDateOnly(claim.updated_at ?? claim.created_at)} rightLabel="Incident Date" rightValue={claim.accident_at ? formatDateOnly(claim.accident_at) : '-'} />
         </View>
+
+        {policyExpiredBeforeIncident ? (
+          <View style={styles.expiredClaimWarning}>
+            <MaterialCommunityIcons name="alert-octagon-outline" size={17} color="#B42318" />
+            <View style={styles.expiredClaimWarningCopy}>
+              <Text style={styles.expiredClaimWarningTitle}>Policy expired before loss date</Text>
+              <Text style={styles.expiredClaimWarningText}>Expiry {formatDateOnly(policy?.end_date)} • Loss {formatDateOnly(claim.accident_at)}</Text>
+            </View>
+          </View>
+        ) : null}
         </View>
 
         <View style={[styles.nextActionCard, { borderColor: tone.border }]}>
@@ -249,7 +260,9 @@ export default function ClaimDetailScreen() {
                   <View style={[styles.chainStepCard, current && { borderColor: tone.border, backgroundColor: tone.soft }]}>
                     <View style={styles.chainStepTop}>
                       <Text style={[styles.journeyStepTitle, current && { color: tone.accent }]}>{step.label}</Text>
-                      <Text style={[styles.chainStepBadge, complete && styles.chainStepBadgeDone, current && { color: tone.accent, backgroundColor: '#FFFFFF' }]}>{current ? 'Current' : complete ? 'Done' : 'Pending'}</Text>
+                      {step.label === 'Journey Complete' && !current && !complete ? null : (
+                        <Text style={[styles.chainStepBadge, complete && styles.chainStepBadgeDone, current && { color: tone.accent, backgroundColor: '#FFFFFF' }]}>{current ? 'Current' : complete ? 'Done' : 'Pending'}</Text>
+                      )}
                     </View>
                     <Text style={styles.journeyStepMeta}>{current ? customerStageCopy(claim.current_status) : complete ? 'This stage has been completed.' : 'This stage will unlock as your claim moves ahead.'}</Text>
                   </View>
@@ -358,13 +371,14 @@ const journey: { label: string; statuses: ClaimStatus[] }[] = [
   { label: 'Spot Survey Completed', statuses: ['Vehicle Inspected'] },
   { label: 'Final Documents', statuses: ['Final Documents Awaited', 'Final Documents Verification Pending', 'Final Documents Submitted', 'Final Documents Verified'] },
   { label: 'Claim Intimation', statuses: ['Claim Intimated', 'Claim Intimation'] },
-  { label: 'Final Surveyor', statuses: ['Final Surveyor Details', 'Survey Status', 'Survey Done'] },
+  { label: 'Final Surveyor Deputation', statuses: ['Final Surveyor Details', 'Survey Status', 'Survey Done'] },
   { label: 'Work Approval', statuses: ['Work Approval Status', 'Work Approval Received', 'Estimate Submitted', 'Approval Pending'] },
   { label: 'Under Repair', statuses: ['Under Repair', 'Repair Done', 'Repair Started', 'Repair Completed'] },
-  { label: 'RI Stage', statuses: ['RA Intimation', 'RA Intimation Done'] },
-  { label: 'DO Stage', statuses: ['DO Status', 'DO Submitted'] },
+  { label: 'RI Status', statuses: ['RA Intimation', 'RA Intimation Done'] },
+  { label: 'DO Status', statuses: ['DO Status', 'DO Submitted'] },
   { label: 'Vehicle Release', statuses: ['Final Bill Submitted'] },
-  { label: 'Payment Advice Received', statuses: ['Payment Stage', 'Claim Completion In Progress', 'Settlement Under Process'] },
+  { label: 'DO Encashment', statuses: ['Payment Stage'] },
+  { label: 'Payment Advice Status', statuses: ['Claim Completion In Progress', 'Settlement Under Process'] },
   { label: 'Journey Complete', statuses: ['Claim Complete', 'Settled', 'Closed'] },
 ];
 
@@ -436,6 +450,21 @@ function formatDateOnly(value?: string | null) {
   return new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function isIncidentAfterPolicyExpiry(claim: Claim, policy: Policy | null) {
+  const incident = claim.accident_at ? new Date(claim.accident_at) : null;
+  const expiry = policyExpiryEndOfDay(policy?.end_date);
+  if (!incident || Number.isNaN(incident.getTime()) || !expiry) return false;
+  return incident.getTime() > expiry.getTime();
+}
+
+function policyExpiryEndOfDay(value?: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+  const parsed = new Date(year, month - 1, day, 23, 59, 59, 999);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
 const styles = StyleSheet.create({
   claimDetailContent: { marginTop: -22 },
   pageHeading: { marginBottom: 12 },
@@ -461,6 +490,10 @@ const styles = StyleSheet.create({
   infoPairHalf: { flex: 1, minWidth: 0 },
   infoPairText: { color: palette.ink, fontSize: 11.1, lineHeight: 15, fontWeight: '800' },
   infoPairLabel: { color: palette.slate, fontSize: 10.2, fontWeight: '900' },
+  expiredClaimWarning: { marginTop: 10, borderRadius: 14, borderWidth: 1, borderColor: '#FDA29B', backgroundColor: '#FEF3F2', paddingHorizontal: 10, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  expiredClaimWarningCopy: { flex: 1, minWidth: 0 },
+  expiredClaimWarningTitle: { color: '#B42318', fontSize: 11.6, fontWeight: '900' },
+  expiredClaimWarningText: { color: '#7A271A', fontSize: 10.4, fontWeight: '800', marginTop: 2 },
   nextActionCard: { flexDirection: 'row', gap: 10, borderRadius: 18, borderWidth: 1, padding: 13, marginBottom: 10, backgroundColor: '#FFFFFF', shadowColor: palette.ink, shadowOpacity: 0.045, shadowRadius: 9, elevation: 1 },
   nextActionIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   nextActionCopy: { flex: 1, minWidth: 0 },

@@ -82,6 +82,7 @@ export default function UploadDocumentsScreen() {
   const verifiedCount = selectedDocuments.filter((item) => item.verification_status === 'verified').length;
   const rejectedCount = selectedDocuments.filter((item) => item.verification_status === 'rejected').length;
   const completionPercent = documentSections.length ? Math.round((completedCount / documentSections.length) * 100) : 0;
+  const policyExpiredBeforeIncident = useMemo(() => isIncidentAfterPolicyExpiry(selectedClaim, selectedPolicy), [selectedClaim, selectedPolicy]);
 
   async function takePhoto(documentType: string) {
     setMessage('');
@@ -236,6 +237,20 @@ export default function UploadDocumentsScreen() {
 
       {message ? <Message type="error">{message}</Message> : null}
       {success ? <Message type="success">{success}</Message> : null}
+
+      {policyExpiredBeforeIncident ? (
+        <View style={styles.expiredPolicyStrip}>
+          <View style={styles.expiredPolicyIcon}>
+            <MaterialCommunityIcons name="alert-octagon-outline" size={20} color="#FFFFFF" />
+          </View>
+          <View style={styles.expiredPolicyCopy}>
+            <Text style={styles.expiredPolicyTitle}>Policy expired before incident date</Text>
+            <Text style={styles.expiredPolicyText}>
+              Policy expiry {formatDate(selectedPolicy?.end_date)} • Incident {formatDate(selectedClaim?.accident_at)}. The claim can continue, but insurer review may require additional clarification.
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       {selectedVehicle ? (
         <View style={styles.vehicleSummary}>
@@ -494,6 +509,21 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function isIncidentAfterPolicyExpiry(claim: Claim | null, policy: Policy | null) {
+  const incident = claim?.accident_at ? new Date(claim.accident_at) : null;
+  const expiry = policyExpiryEndOfDay(policy?.end_date);
+  if (!incident || Number.isNaN(incident.getTime()) || !expiry) return false;
+  return incident.getTime() > expiry.getTime();
+}
+
+function policyExpiryEndOfDay(value?: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+  const parsed = new Date(year, month - 1, day, 23, 59, 59, 999);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
 const styles = StyleSheet.create({
   pageIndicator: { marginTop: -18, marginBottom: 8 },
   pageTitle: { color: palette.navy, fontSize: 18, fontWeight: '900' },
@@ -511,6 +541,11 @@ const styles = StyleSheet.create({
   infoPairHalf: { flex: 1, minWidth: 0 },
   infoPairText: { color: palette.ink, fontSize: 10.9, lineHeight: 15, fontWeight: '800' },
   infoPairLabel: { color: palette.slate, fontSize: 10.1, fontWeight: '900' },
+  expiredPolicyStrip: { borderRadius: 16, borderWidth: 1, borderColor: '#FDA29B', backgroundColor: '#FEF3F2', padding: 11, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 10, shadowColor: '#7A271A', shadowOpacity: 0.08, shadowRadius: 10, elevation: 2 },
+  expiredPolicyIcon: { width: 38, height: 38, borderRadius: 13, backgroundColor: '#D92D20', alignItems: 'center', justifyContent: 'center' },
+  expiredPolicyCopy: { flex: 1, minWidth: 0 },
+  expiredPolicyTitle: { color: '#7A271A', fontSize: 12.5, fontWeight: '900' },
+  expiredPolicyText: { color: '#B42318', fontSize: 10.7, lineHeight: 15, fontWeight: '800', marginTop: 2 },
 
   claimPicker: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DCE8F4', borderRadius: 16, padding: 12, marginBottom: 10 },
   claimPickerTitle: { color: palette.navy, fontSize: 13, fontWeight: '900', marginBottom: 8 },

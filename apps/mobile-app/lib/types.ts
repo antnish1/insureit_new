@@ -135,6 +135,11 @@ type Tables = {
     Insert: { profile_id?: string | null; customer_id?: string | null; claim_id?: string | null; title: string; message: string; status?: 'unread' | 'read' };
     Update: Partial<Tables['notifications']['Insert']>;
   };
+  india_locations: {
+    Row: RowBase & { pincode: string; city_name: string; district: string; state_name: string; search_text: string | null };
+    Insert: { pincode: string; city_name: string; district: string; state_name: string };
+    Update: Partial<Tables['india_locations']['Insert']>;
+  };
 };
 
 export type Database = {
@@ -168,6 +173,7 @@ export type SupportTicketMessage = Tables['support_ticket_messages']['Row'];
 export type SupportTicketAttachment = Tables['support_ticket_attachments']['Row'];
 export type Notification = Tables['notifications']['Row'];
 export type InsuranceCompany = Tables['insurance_companies']['Row'];
+export type IndiaLocation = Tables['india_locations']['Row'];
 
 
 
