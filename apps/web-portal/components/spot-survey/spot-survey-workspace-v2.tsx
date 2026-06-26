@@ -16,7 +16,7 @@ export type SpotSurveyClaim = {
   accident_description: string | null;
   customers: { company_name: string | null; contact_name: string; phone: string | null } | null;
   vehicles: { vehicle_no: string; make: string | null; model: string | null } | null;
-  policies: { policy_no: string | null } | null;
+  policies: { policy_no: string | null; policy_type?: string | null; start_date?: string | null; end_date?: string | null } | null;
   insurance_companies: { name: string | null } | null;
 };
 
@@ -215,7 +215,7 @@ function DocumentCard({ item, claim, verification }: { item: Item; claim: SpotSu
       ) : reuploadRequested ? (
         <div className="mt-3 rounded-md border border-amber-200 bg-white px-3 py-2 text-center text-[12px] font-semibold text-amber-700">Reupload requested</div>
       ) : (
-        <div className="mt-3 grid grid-cols-3 gap-2">{item.document ? <VerificationActionButton claimId={claim.id} documentId={item.document.id} itemKey={item.key} incidentDate={claim.accident_at} /> : <button disabled className="h-8 rounded-md border border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-400">Verify</button>}{item.document ? <RequestReuploadButton claimId={claim.id} documentId={item.document.id} documentTitle={item.title} /> : <button disabled className="h-8 rounded-md border border-slate-200 bg-slate-50 px-2 text-[11px] font-semibold text-slate-400">Reupload</button>}<ReplaceDocumentButton claimId={claim.id} customerId={claim.customer_id} documentType={item.documentType} label={item.title} /></div>
+        <div className="mt-3 grid grid-cols-3 gap-2">{item.document ? <VerificationActionButton claimId={claim.id} documentId={item.document.id} itemKey={item.key} incidentDate={claim.accident_at} policyStartDate={claim.policies?.start_date} policyEndDate={claim.policies?.end_date} /> : <button disabled className="h-8 rounded-md border border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-400">Verify</button>}{item.document ? <RequestReuploadButton claimId={claim.id} documentId={item.document.id} documentTitle={item.title} /> : <button disabled className="h-8 rounded-md border border-slate-200 bg-slate-50 px-2 text-[11px] font-semibold text-slate-400">Reupload</button>}<ReplaceDocumentButton claimId={claim.id} customerId={claim.customer_id} documentType={item.documentType} label={item.title} /></div>
       )}
     </article>
   );
@@ -260,14 +260,47 @@ function ManufacturerLogo({ name }: { name: string }) {
 function InsurerLogo({ name }: { name: string }) {
   const brand = findBrand(name, insurerBrandLogos);
   if (!brand) return <span className="text-[8px] font-bold uppercase text-[#003A83]">ins</span>;
-  return <img src={brand.src} alt={brand.label} className="max-h-6 max-w-10 object-contain" />;
+  return <img src={brand.src} alt={brand.label} className="max-h-6 max-w-9 object-contain" />;
 }
 
-function findBrand(name: string, map: Record<string, BrandLogo>) { const normalized = normalizeBrand(name); return map[normalized] ?? Object.entries(map).find(([key]) => normalized.includes(key) || key.includes(normalized))?.[1]; }
-function normalizeBrand(value: string) { return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
-function latestVerificationForItem(item: Item, verifications: SpotSurveyVerification[]) { return verifications.find((row) => item.document?.id && row.document_id === item.document.id) ?? verifications.find((row) => row.verification_type === item.key && row.is_valid) ?? verifications.find((row) => row.verification_type === item.key); }
-function isItemVerified(item: Item, verifications: SpotSurveyVerification[]) { return item.document?.verification_status === "verified" || Boolean(latestVerificationForItem(item, verifications)?.is_valid); }
-function extractDriverName(value?: string | null) { if (!value) return null; const marker = value.toLowerCase().indexOf("driver"); return marker >= 0 ? value.slice(marker).split(/[,:\n-]/)[1]?.trim() ?? null : null; }
-function extractDriverMobile(value?: string | null) { if (!value) return null; return value.split(/\s|,|\n/).find((part) => /^\+?\d{10,13}$/.test(part.replace(/-/g, ""))) ?? null; }
-function statusLabel(status: string) { if (status === "verified") return "Verified"; if (status === "rejected") return "Rejected"; return "Pending verification"; }
-function formatDateShort(value?: string | null) { return value ? new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-"; }
+function findBrand(name: string, logos: Record<string, BrandLogo>) {
+  const normalized = name.toLowerCase();
+  return Object.entries(logos).find(([key]) => normalized.includes(key))?.[1] ?? null;
+}
+
+function latestVerificationForItem(item: Item, verifications: SpotSurveyVerification[]) {
+  return verifications.find((verification) => {
+    if (verification.document_id && item.document?.id) return verification.document_id === item.document.id;
+    return aliases[item.key as keyof typeof aliases]?.some((alias) => verification.document_type.toLowerCase().includes(alias));
+  });
+}
+
+function isItemVerified(item: Item, verifications: SpotSurveyVerification[]) {
+  const verification = latestVerificationForItem(item, verifications);
+  return Boolean(verification?.is_valid) || item.document?.verification_status === "verified";
+}
+
+function statusLabel(status: SpotSurveyDocument["verification_status"]) {
+  if (status === "verified") return "Verified";
+  if (status === "rejected") return "Rejected";
+  return "Pending";
+}
+
+function formatDateShort(value?: string | null) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+}
+
+function extractDriverName(description?: string | null) {
+  if (!description) return null;
+  const match = description.match(/driver\s*[:\-]\s*([^,;\n]+)/i) ?? description.match(/driver name\s*[:\-]\s*([^,;\n]+)/i);
+  return match?.[1]?.trim() ?? null;
+}
+
+function extractDriverMobile(description?: string | null) {
+  if (!description) return null;
+  const match = description.match(/(?:mobile|phone|contact)\s*[:\-]\s*(\+?\d[\d\s-]{7,})/i) ?? description.match(/\b(\+?91[-\s]?)?[6-9]\d{9}\b/);
+  return match?.[0]?.replace(/^(mobile|phone|contact)\s*[:\-]\s*/i, "").trim() ?? null;
+}
