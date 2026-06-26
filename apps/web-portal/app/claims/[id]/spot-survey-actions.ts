@@ -6,9 +6,8 @@ import type { ClaimStatus } from "@/lib/claim-workflow";
 import { canVerifyClaimDocuments } from "@/lib/roles";
 
 const bucketName = "claim-documents";
-
 const rcDateFields = ["fitness_valid_upto", "tax_valid_upto", "insurance_valid_upto", "pucc_valid_upto", "local_permit_valid_upto", "national_permit_valid_upto"] as const;
-const insuranceRequiredFields = ["insurance_start_date", "insurance_end_date", "ncb_percent", "policy_type_check", "gvw_kg"] as const;
+const insuranceRequiredFields = ["insurance_start_date", "insurance_end_date", "ncb_verified", "policy_type_check", "gvw_kg"] as const;
 
 type ClaimForVerification = { id: string; customer_id: string; current_status: ClaimStatus; accident_at: string | null };
 type ActionResult = { ok: boolean; message?: string };
@@ -69,7 +68,6 @@ function applyAutomaticValidity(details: Record<string, string>, incidentDate: s
   const type = verificationTypeForDocument(documentType);
   const requiredFields = requiredFieldsForDocument(documentType);
   const missingFields = requiredFields.filter((key) => !details[key]);
-
   const dateStatusPairs = [["fitness_valid_upto", "fitness_status"], ["tax_valid_upto", "tax_status"], ["insurance_valid_upto", "insurance_status"], ["pucc_valid_upto", "pucc_status"], ["local_permit_valid_upto", "local_permit_status"], ["national_permit_valid_upto", "national_permit_status"], ["insurance_end_date", "policy_status"]] as const;
   const invalidFields: string[] = [];
   const finalDetails = { ...details };
@@ -196,14 +194,15 @@ export async function replaceSpotSurveyDocument(formData: FormData): Promise<Act
     if (!claimId || !documentType || !customerId || !(file instanceof File) || !file.size) throw new Error("Missing replacement document details.");
     const profile = await currentProfile(); await loadClaim(claimId); const supabase = await createServerSupabaseClient();
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_"); const storagePath = `${claimId}/${Date.now()}-${safeName}`;
-    const { error: uploadError } = await supabase.storage.from(bucketName).upload(storagePath, file, { contentType: file.type || "application/octet-stream", upsert: false });
+    const { error: uploadError } = await supabase.storage.from(bucketName).upload(storagePath, file, { cacheControl: "3600", upsert: false });
     if (uploadError) throw new Error(uploadError.message);
-    const { error: insertError } = await supabase.from("claim_documents").insert({ claim_id: claimId, customer_id: customerId, document_type: documentType, file_name: file.name, storage_bucket: bucketName, storage_path: storagePath, mime_type: file.type || null, file_size: file.size, uploaded_by: profile?.id ?? null });
+    const { error: insertError } = await supabase.from("claim_documents").insert({ claim_id: claimId, customer_id: customerId, document_type: documentType, file_name: safeName, storage_bucket: bucketName, storage_path: storagePath, verification_status: "pending" });
     if (insertError) throw new Error(insertError.message);
+    await supabase.from("claim_status_history").insert({ claim_id: claimId, from_status: null, to_status: null, notes: `${documentType} replaced by claim manager.`, changed_by: profile?.id ?? null });
     revalidatePath(`/claims/${claimId}`); revalidatePath("/claims"); revalidatePath("/dashboard");
-    return { ok: true, message: "Replacement document uploaded successfully." };
+    return { ok: true, message: "Document replaced successfully." };
   } catch (error) {
     console.error("replaceSpotSurveyDocument failed", error);
-    return { ok: false, message: error instanceof Error ? error.message : "Replacement upload failed." };
+    return { ok: false, message: error instanceof Error ? error.message : "Document replacement failed." };
   }
 }
