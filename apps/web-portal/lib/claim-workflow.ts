@@ -100,62 +100,13 @@ export const documentVerificationStatuses: ClaimStatus[] = [
 export const terminalClaimStatuses: ClaimStatus[] = ["Settled", "Rejected", "Closed"];
 
 export const claimQueueDefinitions = [
-  {
-    key: "new",
-    label: "New claims",
-    shortLabel: "New",
-    statuses: ["Draft", "Accident Reported"] as ClaimStatus[],
-    icon: "alert-plus-outline",
-    tone: "info"
-  },
-  {
-    key: "documents",
-    label: "Initial documents",
-    shortLabel: "Docs",
-    statuses: ["Initial Documents Pending", "Initial Documents Verification Pending", "Initial Documents Submitted", "Initial Documents Verified", "Documents Pending", "Documents Submitted"] as ClaimStatus[],
-    icon: "file-alert-outline",
-    tone: "danger"
-  },
-  {
-    key: "survey",
-    label: "Survey pending",
-    shortLabel: "Survey",
-    statuses: ["Claim Intimated", "Surveyor Appointed", "Vehicle Inspected"] as ClaimStatus[],
-    icon: "clipboard-search-outline",
-    tone: "info"
-  },
-  {
-    key: "approval",
-    label: "Approval pending",
-    shortLabel: "Approval",
-    statuses: ["Spot Survey Completed", "Final Documents Awaited", "Final Documents Verification Pending", "Final Documents Submitted", "Final Documents Verified", "Claim Intimation", "Final Surveyor Details", "Work Approval Received"] as ClaimStatus[],
-    icon: "shield-alert-outline",
-    tone: "warning"
-  },
-  {
-    key: "repair",
-    label: "Repair and final bill",
-    shortLabel: "Repair",
-    statuses: ["Under Repair", "Repair Done", "RA Intimation", "RA Intimation Done", "DO Status"] as ClaimStatus[],
-    icon: "car-wrench",
-    tone: "info"
-  },
-  {
-    key: "payment",
-    label: "Settlement and payment",
-    shortLabel: "Payment",
-    statuses: ["Payment Stage", "Claim Completion In Progress", "Claim Complete"] as ClaimStatus[],
-    icon: "bank-transfer",
-    tone: "warning"
-  },
-  {
-    key: "closed",
-    label: "Completed",
-    shortLabel: "Closed",
-    statuses: ["Settled", "Closed"] as ClaimStatus[],
-    icon: "check-decagram-outline",
-    tone: "success"
-  }
+  { key: "new", label: "New claims", shortLabel: "New", statuses: ["Draft", "Accident Reported"] as ClaimStatus[], icon: "alert-plus-outline", tone: "info" },
+  { key: "documents", label: "Initial documents", shortLabel: "Docs", statuses: ["Initial Documents Pending", "Initial Documents Verification Pending", "Initial Documents Submitted", "Initial Documents Verified", "Documents Pending", "Documents Submitted"] as ClaimStatus[], icon: "file-alert-outline", tone: "danger" },
+  { key: "survey", label: "Survey pending", shortLabel: "Survey", statuses: ["Claim Intimated", "Surveyor Appointed", "Vehicle Inspected"] as ClaimStatus[], icon: "clipboard-search-outline", tone: "info" },
+  { key: "approval", label: "Approval pending", shortLabel: "Approval", statuses: ["Spot Survey Completed", "Final Documents Awaited", "Final Documents Verification Pending", "Final Documents Submitted", "Final Documents Verified", "Claim Intimation", "Final Surveyor Details", "Work Approval Received"] as ClaimStatus[], icon: "shield-alert-outline", tone: "warning" },
+  { key: "repair", label: "Repair and final bill", shortLabel: "Repair", statuses: ["Under Repair", "Repair Done", "RA Intimation", "RA Intimation Done", "DO Status"] as ClaimStatus[], icon: "car-wrench", tone: "info" },
+  { key: "payment", label: "Settlement and payment", shortLabel: "Payment", statuses: ["Payment Stage", "Claim Completion In Progress", "Claim Complete"] as ClaimStatus[], icon: "bank-transfer", tone: "warning" },
+  { key: "closed", label: "Completed", shortLabel: "Closed", statuses: ["Settled", "Closed"] as ClaimStatus[], icon: "check-decagram-outline", tone: "success" }
 ] as const;
 
 export const operationsQueueDefinitions = [
@@ -170,6 +121,47 @@ export const operationsQueueDefinitions = [
 ] as const;
 
 export type OperationsQueueKey = (typeof operationsQueueDefinitions)[number]["key"];
+
+export const managerTransitions: Partial<Record<ClaimStatus, ClaimStatus>> = {
+  Draft: "Accident Reported",
+  "Accident Reported": "Initial Documents Pending",
+  "Initial Documents Pending": "Initial Documents Submitted",
+  "Initial Documents Submitted": "Initial Documents Verification Pending",
+  "Initial Documents Verification Pending": "Initial Documents Verified",
+  "Documents Pending": "Documents Submitted",
+  "Documents Submitted": "Initial Documents Verified",
+  "Initial Documents Verified": "Surveyor Appointed",
+  "Claim Intimated": "Surveyor Appointed",
+  "Surveyor Appointed": "Spot Survey Completed",
+  "Spot Survey Completed": "Final Documents Awaited",
+  "Vehicle Inspected": "Final Documents Awaited",
+  "Final Documents Awaited": "Final Documents Submitted",
+  "Final Documents Submitted": "Final Documents Verification Pending",
+  "Final Documents Verification Pending": "Final Documents Verified",
+  "Final Documents Verified": "Claim Intimation",
+  "Claim Intimation": "Final Surveyor Details",
+  "Final Surveyor Details": "Survey Status",
+  "Survey Status": "Survey Done",
+  "Survey Done": "Work Approval Status",
+  "Work Approval Status": "Work Approval Received",
+  "Work Approval Received": "Under Repair",
+  "Under Repair": "Repair Done",
+  "Repair Done": "RA Intimation",
+  "RA Intimation": "RA Intimation Done",
+  "RA Intimation Done": "DO Status",
+  "DO Status": "Payment Stage",
+  "Payment Stage": "Claim Completion In Progress",
+  "Claim Completion In Progress": "Claim Complete",
+  "Claim Complete": "Closed",
+  "Estimate Submitted": "Approval Pending",
+  "Approval Pending": "Work Approval Received",
+  "Repair Started": "Repair Completed",
+  "Repair Completed": "DO Submitted",
+  "DO Submitted": "Final Bill Submitted",
+  "Final Bill Submitted": "Settlement Under Process",
+  "Settlement Under Process": "Settled",
+  Settled: "Closed"
+};
 
 const finalDocumentPhaseStatuses: ClaimStatus[] = [
   "Spot Survey Completed",
