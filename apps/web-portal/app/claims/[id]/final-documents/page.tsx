@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { ClaimManagerShell } from "@/components/claim-manager/claim-manager-shell";
+import { FinalDocumentsWorkspace, type DealershipDetails, type FinalDocumentRow } from "@/components/final-documents/final-documents-workspace";
 import { createServerSupabaseClient } from "@/lib/auth-server";
 import { finalClaimDocuments, operationsQueueForStatus, type ClaimStatus } from "@/lib/claim-workflow";
 
@@ -18,14 +19,21 @@ type ClaimDetail = {
   insurance_companies: { name: string | null; contact_email: string | null; contact_phone: string | null } | null;
 };
 
-type BrandLogo = { src: string; label: string };
-
-type FinalDocumentRow = {
-  sr: number;
-  name: string;
-  group: string;
-  status: "Pending" | "Uploaded" | "Verified";
+type ClaimDocument = {
+  id: string;
+  document_type: string;
+  file_name: string | null;
+  verification_status: string | null;
+  created_at: string | null;
 };
+
+type StageDetailRow = {
+  id: string;
+  details: Record<string, unknown> | null;
+  created_at: string;
+};
+
+type BrandLogo = { src: string; label: string };
 
 const vehicleBrandLogos: Record<string, BrandLogo> = {
   tata: { src: "/assets/vehicle-brands/tata.svg", label: "Tata Motors" },
@@ -51,104 +59,68 @@ const insurerBrandLogos: Record<string, BrandLogo> = {
 export default async function FinalDocumentsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createServerSupabaseClient();
-  const { data: claim, error } = await supabase
-    .from("claims")
-    .select("id, claim_no, insurer_claim_no, customer_id, current_status, accident_at, accident_location, accident_description, customers(company_name, contact_name, phone, email), vehicles(vehicle_no, vehicle_type, make, model), policies(policy_no, policy_type, start_date, end_date), insurance_companies(name, contact_email, contact_phone)")
-    .eq("id", id)
-    .maybeSingle<ClaimDetail>();
+  const [{ data: claim, error }, { data: documents }, { data: stageRows }] = await Promise.all([
+    supabase
+      .from("claims")
+      .select("id, claim_no, insurer_claim_no, customer_id, current_status, accident_at, accident_location, accident_description, customers(company_name, contact_name, phone, email), vehicles(vehicle_no, vehicle_type, make, model), policies(policy_no, policy_type, start_date, end_date), insurance_companies(name, contact_email, contact_phone)")
+      .eq("id", id)
+      .maybeSingle<ClaimDetail>(),
+    supabase
+      .from("claim_documents")
+      .select("id, document_type, file_name, verification_status, created_at")
+      .eq("claim_id", id)
+      .order("created_at", { ascending: false })
+      .returns<ClaimDocument[]>(),
+    supabase
+      .from("claim_stage_details")
+      .select("id, details, created_at")
+      .eq("claim_id", id)
+      .order("created_at", { ascending: false })
+      .returns<StageDetailRow[]>()
+  ]);
 
   if (error || !claim) notFound();
-
-  const { data: documents } = await supabase
-    .from("claim_documents")
-    .select("document_type, verification_status")
-    .eq("claim_id", id);
 
   const queue = operationsQueueForStatus(claim.current_status);
   const backHref = queue ? `/claims?queue=${queue.key}` : "/claims";
   const title = `Final Documents - ${claim.claim_no}${claim.insurer_claim_no ? ` / ${claim.insurer_claim_no}` : ""}`;
-  const rows = finalClaimDocuments.map((document, index): FinalDocumentRow => {
-    const uploaded = documents?.find((item) => item.document_type?.toLowerCase() === document.type.toLowerCase());
+  const rows: FinalDocumentRow[] = finalClaimDocuments.map((document, index) => {
+    const uploaded = latestActiveDocument(documents ?? [], document.type);
     return {
       sr: index + 1,
+      type: document.type,
       name: document.title,
-      group: groupForIndex(index),
+      documentId: uploaded?.id ?? null,
+      fileName: uploaded?.file_name ?? null,
       status: uploaded?.verification_status === "verified" ? "Verified" : uploaded ? "Uploaded" : "Pending"
     };
   });
+  const dealershipDetails = extractDealershipDetails(stageRows ?? []);
 
   return (
     <ClaimManagerShell title={title} backHref={backHref}>
       <div className="mx-auto max-w-[1440px] space-y-2 pb-4">
         <InfoStrip claim={claim} />
         <SpotSurveyDetailsPanel driverName={extractDriverName(claim.accident_description)} driverMobile={extractDriverMobile(claim.accident_description) ?? claim.customers?.phone ?? null} lossLocation={claim.accident_location} />
-        <DealershipPanel />
-        <FinalDocumentsChecklist rows={rows} />
+        <FinalDocumentsWorkspace claimId={claim.id} rows={rows} dealershipDetails={dealershipDetails} />
       </div>
     </ClaimManagerShell>
   );
 }
 
-function DealershipPanel() {
-  return (
-    <section className="rounded-2xl border border-[#DFE8F4] bg-white p-4 shadow-[0_8px_22px_rgba(7,29,73,0.035)]">
-      <h2 className="text-[15px] font-semibold text-[#071D49]">Dealership Details</h2>
-      <div className="mt-3 grid gap-3 md:grid-cols-4">
-        <InfoInput label="Dealership Name" value="Tata Motors Service Center" />
-        <InfoInput label="Dealership Address" value="No. 45, Hosur Main Road, Adugodi, Bangalore - 560030" />
-        <InfoInput label="Contact Person Name" value="Rajesh Verma" />
-        <InfoInput label="Contact Number" value="9876543210" />
-      </div>
-    </section>
-  );
+function latestActiveDocument(documents: ClaimDocument[], documentType: string) {
+  return documents.find((document) => document.document_type?.toLowerCase() === documentType.toLowerCase() && document.verification_status !== "rejected") ?? null;
 }
 
-function InfoInput({ label, value }: { label: string; value: string }) {
-  return <div><p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#174EA6]">{label} <span className="text-red-600">*</span></p><div className="mt-1 min-h-10 rounded-lg border border-[#D9E3F0] bg-[#FBFCFE] px-3 py-2 text-[12px] font-semibold text-[#071D49]">{value}</div></div>;
-}
-
-function FinalDocumentsChecklist({ rows }: { rows: FinalDocumentRow[] }) {
-  const groups = ["Forms", "Documents 6 - 10", "Documents 11 - 15", "Documents 16 - 20", "Documents 21 - 26"];
-  const firstGroupRows = rows.slice(0, 5);
-  return (
-    <section className="rounded-2xl border border-[#DFE8F4] bg-white p-4 shadow-[0_8px_22px_rgba(7,29,73,0.035)]">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-[#071D49]">Check List For - GCCV Motor Claim</h2>
-          <p className="mt-1 text-[12px] font-medium text-[#526178]">Final documents stage. Exact final document list can be refined after your next attachment.</p>
-        </div>
-        <span className="rounded-full border border-[#D9E6F7] bg-[#F7FAFF] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#174EA6]">Final Documents</span>
-      </div>
-      <div className="grid overflow-hidden rounded-xl border border-[#D9E3F0] md:grid-cols-5">
-        {groups.map((group, index) => <div key={group} className={`flex items-center gap-2 border-b border-[#D9E3F0] px-4 py-3 text-[12px] font-semibold md:border-b-0 ${index === 0 ? "bg-[#071D49] text-white" : "bg-[#FBFCFE] text-[#071D49] md:border-l"}`}><span className={`grid h-5 w-5 place-items-center rounded-full text-[10px] ${index === 0 ? "bg-white text-[#071D49]" : "bg-[#EEF4FF] text-[#071D49]"}`}>{index + 1}</span>{group}</div>)}
-      </div>
-      <div className="mt-3 overflow-hidden rounded-xl border border-[#D9E3F0]">
-        <table className="w-full min-w-[860px] border-collapse text-left text-[12px]">
-          <thead className="bg-[#071D49] text-white">
-            <tr>
-              <th className="px-3 py-2 font-semibold">Sr. No.</th>
-              <th className="px-3 py-2 font-semibold">Document Name</th>
-              <th className="px-3 py-2 text-center font-semibold">Upload Document</th>
-              <th className="px-3 py-2 text-center font-semibold">Status</th>
-              <th className="px-3 py-2 text-center font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#E6EEF7] bg-white">
-            {firstGroupRows.map((row) => <tr key={row.sr} className="hover:bg-[#F8FBFF]"><td className="px-3 py-2 font-semibold text-[#526178]">{row.sr}</td><td className="px-3 py-2 font-semibold text-[#071D49]">{row.name}</td><td className="px-3 py-2 text-center"><button type="button" className="rounded-md border border-[#BFD3F7] bg-white px-3 py-1 text-[11px] font-semibold text-[#174EA6]">Upload</button></td><td className="px-3 py-2 text-center"><StatusPill status={row.status} /></td><td className="px-3 py-2"><div className="flex justify-center gap-2"><button type="button" className="rounded-md border border-[#BFD3F7] bg-white px-3 py-1 text-[11px] font-semibold text-[#174EA6]">Verify</button><button type="button" className="rounded-md border border-[#D9E3F0] bg-white px-3 py-1 text-[11px] font-semibold text-[#071D49]">Replace</button><button type="button" className="rounded-md border border-[#D9E3F0] bg-white px-3 py-1 text-[11px] font-semibold text-[#071D49]">Reload</button></div></td></tr>)}
-          </tbody>
-        </table>
-      </div>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <button type="button" disabled className="rounded-lg border border-[#D9E3F0] bg-[#F4F7FC] px-5 py-2 text-[12px] font-semibold text-[#9AA7BA]">Previous</button>
-        <div className="flex gap-3"><button type="button" className="rounded-lg border border-[#D9E3F0] bg-white px-5 py-2 text-[12px] font-semibold text-[#071D49]">Save as Draft</button><button type="button" className="rounded-lg bg-[#071D49] px-5 py-2 text-[12px] font-semibold text-white">Submit Claim Intimation</button><button type="button" className="rounded-lg bg-[#071D49] px-5 py-2 text-[12px] font-semibold text-white">Next</button></div>
-      </div>
-    </section>
-  );
-}
-
-function StatusPill({ status }: { status: FinalDocumentRow["status"] }) {
-  const tone = status === "Verified" ? "border-green-200 bg-green-50 text-green-700" : status === "Uploaded" ? "border-blue-200 bg-blue-50 text-blue-700" : "border-amber-200 bg-amber-50 text-amber-700";
-  return <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold ${tone}`}>{status}</span>;
+function extractDealershipDetails(rows: StageDetailRow[]): DealershipDetails | null {
+  const row = rows.find((item) => item.details?.verification_type === "final_documents_dealership_details");
+  if (!row?.details) return null;
+  return {
+    dealership_name: typeof row.details.dealership_name === "string" ? row.details.dealership_name : "",
+    dealership_address: typeof row.details.dealership_address === "string" ? row.details.dealership_address : "",
+    contact_person_name: typeof row.details.contact_person_name === "string" ? row.details.contact_person_name : "",
+    contact_number: typeof row.details.contact_number === "string" ? row.details.contact_number : ""
+  };
 }
 
 function InfoStrip({ claim }: { claim: ClaimDetail }) {
@@ -168,4 +140,3 @@ function findBrand(name: string, logos: Record<string, BrandLogo>) { const norma
 function formatDateShort(value?: string | null) { if (!value) return "-"; const date = new Date(value); if (Number.isNaN(date.getTime())) return "-"; return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date); }
 function extractDriverName(description?: string | null) { if (!description) return null; const match = description.match(/driver\s*[:\-]\s*([^,;\n]+)/i) ?? description.match(/driver name\s*[:\-]\s*([^,;\n]+)/i); return match?.[1]?.trim() ?? null; }
 function extractDriverMobile(description?: string | null) { if (!description) return null; const match = description.match(/(?:mobile|phone|contact)\s*[:\-]\s*(\+?\d[\d\s-]{7,})/i) ?? description.match(/\b(\+?91[-\s]?)?[6-9]\d{9}\b/); return match?.[0]?.replace(/^(mobile|phone|contact)\s*[:\-]\s*/i, "").trim() ?? null; }
-function groupForIndex(index: number) { if (index < 5) return "Forms"; if (index < 10) return "Documents 6 - 10"; if (index < 15) return "Documents 11 - 15"; if (index < 20) return "Documents 16 - 20"; return "Documents 21 - 26"; }
