@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { DocumentVerificationDetailsButton } from "./document-verification-details-button";
 import { ReplaceDocumentButton } from "./replace-document-button";
 import { RequestReuploadButton } from "./request-reupload-button";
+import { SurveyDoneButton } from "./survey-done-button";
 import { SurveyorDeputationForm } from "./surveyor-deputation-form";
 import { VerificationActionButton } from "./verification-action-button";
 
@@ -103,13 +104,13 @@ export function SpotSurveyWorkspace({ claim, documents, verifications = [], surv
           <div className="rounded-xl bg-[#F4F7FC] px-3 py-2 text-right"><p className="text-[9px] font-medium uppercase tracking-[0.12em] text-[#68758A]">Documents Verified</p><p className="text-[17px] font-semibold text-[#071D49]">{verifiedCount}/{items.length}</p></div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">{items.map((item) => <DocumentCard key={item.key} item={item} claim={claim} verification={latestVerificationForItem(item, verifications)} />)}</div>
-        {allDocumentsVerified ? (claim.current_status === "Surveyor Appointed" ? <SurveyorAssignedNotice details={surveyorDetails} /> : <SurveyorDeputationForm claimId={claim.id} />) : <div className="mt-3 rounded-xl border border-[#E4ECF6] bg-[#FBFCFE] p-3 text-[12px] font-semibold text-[#526178]">Complete all required document verification to enable spot surveyor deputation.</div>}
+        {allDocumentsVerified ? (claim.current_status === "Surveyor Appointed" ? <SurveyorAssignedNotice claimId={claim.id} details={surveyorDetails} /> : <SurveyorDeputationForm claimId={claim.id} />) : <div className="mt-3 rounded-xl border border-[#E4ECF6] bg-[#FBFCFE] p-3 text-[12px] font-semibold text-[#526178]">Complete all required document verification to enable spot surveyor deputation.</div>}
       </section>
     </div>
   );
 }
 
-function SurveyorAssignedNotice({ details }: { details?: SurveyorDetails | null }) {
+function SurveyorAssignedNotice({ claimId, details }: { claimId: string; details?: SurveyorDetails | null }) {
   return (
     <div className="mt-3 rounded-2xl border border-[#D9E3F0] bg-[#FBFCFE] p-4 shadow-[0_8px_22px_rgba(7,29,73,0.035)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E6EEF7] pb-3">
@@ -117,7 +118,7 @@ function SurveyorAssignedNotice({ details }: { details?: SurveyorDetails | null 
           <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[#071D49]">Spot Surveyor Details</h2>
           <p className="mt-1 text-[12px] font-medium text-[#526178]">Click &apos;Survey Done&apos; to move into next stage.</p>
         </div>
-        <button type="button" className="h-10 rounded-lg bg-[#071D49] px-5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#12356C]">Survey Done</button>
+        <SurveyDoneButton claimId={claimId} />
       </div>
       <div className="mt-3 grid overflow-hidden rounded-xl border border-[#E6EEF7] bg-white md:grid-cols-3">
         <SurveyorColumn label="Surveyor Name" value={details?.name || "Not available"} />
@@ -129,12 +130,7 @@ function SurveyorAssignedNotice({ details }: { details?: SurveyorDetails | null 
   );
 }
 
-function SurveyorColumn({ label, value, href, last = false }: { label: string; value: string; href?: string; last?: boolean }) {
-  const content = <><span className="block text-[10px] font-semibold uppercase tracking-[0.11em] text-[#68758A]">{label}</span><span className="mt-1 block truncate text-[15px] font-semibold tracking-[-0.01em] text-[#071D49]">{value}</span></>;
-  const className = `min-w-0 px-4 py-3 ${last ? "" : "border-b border-[#E6EEF7] md:border-b-0 md:border-r"}`;
-  return href ? <a href={href} className={`${className} transition hover:bg-[#F7FAFF]`}>{content}</a> : <div className={className}>{content}</div>;
-}
-
+function SurveyorColumn({ label, value, href, last = false }: { label: string; value: string; href?: string; last?: boolean }) { const content = <><span className="block text-[10px] font-semibold uppercase tracking-[0.11em] text-[#68758A]">{label}</span><span className="mt-1 block truncate text-[15px] font-semibold tracking-[-0.01em] text-[#071D49]">{value}</span></>; const className = `min-w-0 px-4 py-3 ${last ? "" : "border-b border-[#E6EEF7] md:border-b-0 md:border-r"}`; return href ? <a href={href} className={`${className} transition hover:bg-[#F7FAFF]`}>{content}</a> : <div className={className}>{content}</div>; }
 function InfoStrip({ claim }: { claim: SpotSurveyClaim }) { const customerName = claim.customers?.company_name || claim.customers?.contact_name || "-"; const insurer = claim.insurance_companies?.name || "-"; const insurerRef = claim.insurer_claim_no || claim.policies?.policy_no || claim.claim_no; const make = claim.vehicles?.make || "-"; const model = claim.vehicles?.model || "-"; return <section className="grid overflow-hidden rounded-2xl border border-[#DFE8F4] bg-[#F8FBFF] shadow-[0_6px_18px_rgba(7,29,73,0.03)] md:grid-cols-3 xl:grid-cols-5"><Info icon="👤" label="Customer" title={customerName} subtitle={claim.customers?.phone ?? "-"} /><Info icon="🚗" label="Vehicle No." title={claim.vehicles?.vehicle_no ?? "-"} /><Info label="Make & Model" title={make} subtitle={model} logo={<ManufacturerLogo name={make} />} /><Info label="Insurer" title={insurer} subtitle={insurerRef} logo={<InsurerLogo name={insurer} />} /><Info icon="📅" label="Loss Date" title={formatDateShort(claim.accident_at)} /><Info icon="🧾" label="Policy No." title={claim.policies?.policy_no ?? "-"} /><Info icon="#" label="Control No." title={claim.claim_no} /><Info icon="▣" label="Claim No." title={claim.insurer_claim_no ?? "-"} /><Info icon="✓" label="Claim Status" title={claim.current_status ?? "-"} last /></section>; }
 function Info({ icon, label, title, subtitle, logo, last = false }: { icon?: string; label: string; title: string; subtitle?: string | null; logo?: ReactNode; last?: boolean }) { return <div className={`flex min-h-[78px] items-start gap-3 px-4 py-3 ${last ? "" : "border-b border-[#DFE8F4] md:border-b-0 md:border-r"}`}><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#EEF4FC] text-[20px]">{logo ?? icon}</div><div className="min-w-0 flex-1"><p className="text-[10px] font-medium uppercase tracking-[0.04em] leading-4 text-[#174EA6]">{label}</p><p className="mt-0.5 whitespace-normal break-words text-[14px] font-semibold leading-5 text-[#071D49]">{title}</p>{subtitle ? <p className="whitespace-normal break-words text-[12px] leading-4 text-[#1F2B3D]">{subtitle}</p> : null}</div></div>; }
 function SpotSurveyDetailsPanel({ driverName, driverMobile, lossLocation }: { driverName: string | null; driverMobile: string | null; lossLocation: string | null }) { const mapHref = lossLocation ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lossLocation)}` : null; return <section className="grid min-h-[42px] items-center overflow-hidden rounded-xl border border-[#DFE8F4] bg-white shadow-[0_4px_12px_rgba(7,29,73,0.025)] lg:grid-cols-[220px_220px_1fr]"><StripDetail icon="👤" label="Driver" value={driverName || "Not available"} /><StripDetail icon="☎" label="Mobile" value={driverMobile || "Not available"} href={driverMobile ? `tel:${driverMobile}` : undefined} /><StripDetail icon="📍" label="Loss Location" value={lossLocation || "Not available"} href={mapHref ?? undefined} isLocation /></section>; }
