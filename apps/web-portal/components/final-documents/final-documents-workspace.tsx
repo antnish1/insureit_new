@@ -148,18 +148,24 @@ export function FinalDocumentsWorkspace({ claimId, rows, dealershipDetails }: { 
                   </td>
                   <td className="px-3 py-2 text-center"><StatusPill status={row.status} /></td>
                   <td className="px-3 py-2">
-                    <div className="flex justify-center gap-2">
-                      <button type="button" disabled={!row.documentId || row.status === "Verified" || isPending} onClick={() => runAction(`verify-${row.type}`, () => {
-                        const formData = formForBase();
-                        formData.set("documentId", row.documentId ?? "");
-                        formData.set("documentType", row.type);
-                        return verifyFinalDocument(formData);
-                      })} className="rounded-md border border-[#BFD3F7] bg-white px-3 py-1 text-[11px] font-semibold text-[#174EA6] transition hover:bg-[#F7FAFF] disabled:cursor-not-allowed disabled:border-[#D9E3F0] disabled:text-[#9AA7BA]">
-                        {isPending && pendingAction === `verify-${row.type}` ? "Verifying..." : row.status === "Verified" ? "Verified" : "Verify"}
-                      </button>
-                      <button type="button" onClick={() => fileInputs.current[row.type]?.click()} className="rounded-md border border-[#D9E3F0] bg-white px-3 py-1 text-[11px] font-semibold text-[#071D49] transition hover:bg-[#F7FAFF]">Replace</button>
-                      <button type="button" onClick={() => router.refresh()} className="rounded-md border border-[#D9E3F0] bg-white px-3 py-1 text-[11px] font-semibold text-[#071D49] transition hover:bg-[#F7FAFF]">Reload</button>
-                    </div>
+                    {row.status === "Verified" ? (
+                      <div className="flex justify-center">
+                        <span className="rounded-md border border-green-200 bg-green-50 px-3 py-1 text-[11px] font-semibold text-green-700">Verified</span>
+                      </div>
+                    ) : (
+                      <div className="flex justify-center gap-2">
+                        <button type="button" disabled={!row.documentId || isPending} onClick={() => runAction(`verify-${row.type}`, () => {
+                          const formData = formForBase();
+                          formData.set("documentId", row.documentId ?? "");
+                          formData.set("documentType", row.type);
+                          return verifyFinalDocument(formData);
+                        })} className="rounded-md border border-[#BFD3F7] bg-white px-3 py-1 text-[11px] font-semibold text-[#174EA6] transition hover:bg-[#F7FAFF] disabled:cursor-not-allowed disabled:border-[#D9E3F0] disabled:text-[#9AA7BA]">
+                          {isPending && pendingAction === `verify-${row.type}` ? "Verifying..." : "Verify"}
+                        </button>
+                        <button type="button" onClick={() => fileInputs.current[row.type]?.click()} className="rounded-md border border-[#D9E3F0] bg-white px-3 py-1 text-[11px] font-semibold text-[#071D49] transition hover:bg-[#F7FAFF]">Replace</button>
+                        <button type="button" onClick={() => router.refresh()} className="rounded-md border border-[#D9E3F0] bg-white px-3 py-1 text-[11px] font-semibold text-[#071D49] transition hover:bg-[#F7FAFF]">Reload</button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
