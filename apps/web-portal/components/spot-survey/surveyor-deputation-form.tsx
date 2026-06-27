@@ -1,14 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deputeSpotSurveyor } from "@/app/claims/[id]/surveyor-actions";
 
 type Result = { ok: boolean; message?: string };
 
-export function SurveyorDeputationForm({ claimId }: { claimId: string }) {
+export function SurveyorDeputationForm({ claimId, variant = "launcher", backHref }: { claimId: string; variant?: "launcher" | "form"; backHref?: string }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<Result | null>(null);
   const [surveyorName, setSurveyorName] = useState("");
@@ -19,7 +19,7 @@ export function SurveyorDeputationForm({ claimId }: { claimId: string }) {
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(surveyorEmail.trim());
   const canSubmit = Boolean(surveyorName.trim() && mobileValid && emailValid);
 
-  if (!open) {
+  if (variant === "launcher") {
     return (
       <div className="mt-3 rounded-2xl border border-green-200 bg-green-50/60 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -27,9 +27,9 @@ export function SurveyorDeputationForm({ claimId }: { claimId: string }) {
             <h2 className="text-[16px] font-semibold text-[#071D49]">All documents verified successfully</h2>
             <p className="mt-1 text-[12px] text-[#526178]">You can now depute the spot surveyor for this claim.</p>
           </div>
-          <button type="button" onClick={() => { setOpen(true); setResult(null); }} className="h-10 rounded-lg bg-[#071D49] px-5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#12356C]">
+          <Link href={`/claims/${claimId}/spot-surveyor`} className="inline-flex h-10 items-center rounded-lg bg-[#071D49] px-5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#12356C]">
             Depute Spot Surveyor
-          </button>
+          </Link>
         </div>
       </div>
     );
@@ -46,7 +46,7 @@ export function SurveyorDeputationForm({ claimId }: { claimId: string }) {
           if (response.ok) router.refresh();
         });
       }}
-      className="mt-3 rounded-2xl border border-[#DFE8F4] bg-white p-5 shadow-[0_10px_24px_rgba(7,29,73,0.04)]"
+      className="rounded-2xl border border-[#DFE8F4] bg-white p-5 shadow-[0_10px_24px_rgba(7,29,73,0.04)]"
     >
       <div>
         <h2 className="text-[20px] font-semibold text-[#071D49]">Surveyor Details</h2>
@@ -70,7 +70,7 @@ export function SurveyorDeputationForm({ claimId }: { claimId: string }) {
       {result ? <p className={`mt-5 rounded-lg border px-3 py-2 text-[12px] font-semibold ${result.ok ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-700"}`}>{result.message}</p> : null}
 
       <div className="mt-6 flex items-center justify-between border-t border-[#E6EEF7] pt-5">
-        <button type="button" onClick={() => setOpen(false)} className="h-10 rounded-lg border border-[#B8C5D6] px-6 text-[13px] font-semibold text-[#071D49]">Cancel</button>
+        <Link href={backHref ?? `/claims/${claimId}`} className="inline-flex h-10 items-center rounded-lg border border-[#B8C5D6] px-6 text-[13px] font-semibold text-[#071D49]">Cancel</Link>
         <button type="submit" disabled={pending || !canSubmit || result?.ok} className="h-10 rounded-lg bg-[#071D49] px-8 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#A9B4C5] disabled:opacity-70">
           {pending ? "Submitting..." : result?.ok ? "Submitted" : "Submit"}
         </button>
