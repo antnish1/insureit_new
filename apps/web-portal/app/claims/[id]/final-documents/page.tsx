@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import { ClaimManagerShell } from "@/components/claim-manager/claim-manager-shell";
-import { FinalDocumentsWorkspace, type DealershipDetails, type FinalDocumentRow } from "@/components/final-documents/final-documents-workspace";
+import { finalDocumentDefinitions } from "@/components/final-documents/final-document-groups";
+import { FinalDocumentsWorkspaceV2, type DealershipDetailsV2, type FinalDocumentRowV2 } from "@/components/final-documents/final-documents-workspace-v2";
 import { createServerSupabaseClient } from "@/lib/auth-server";
-import { finalClaimDocuments, operationsQueueForStatus, type ClaimStatus } from "@/lib/claim-workflow";
+import { operationsQueueForStatus, type ClaimStatus } from "@/lib/claim-workflow";
 
 type ClaimDetail = {
   id: string;
@@ -19,20 +20,8 @@ type ClaimDetail = {
   insurance_companies: { name: string | null; contact_email: string | null; contact_phone: string | null } | null;
 };
 
-type ClaimDocument = {
-  id: string;
-  document_type: string;
-  file_name: string | null;
-  verification_status: string | null;
-  created_at: string | null;
-};
-
-type StageDetailRow = {
-  id: string;
-  details: Record<string, unknown> | null;
-  created_at: string;
-};
-
+type ClaimDocument = { id: string; document_type: string; file_name: string | null; verification_status: string | null; created_at: string | null };
+type StageDetailRow = { id: string; details: Record<string, unknown> | null; created_at: string };
 type BrandLogo = { src: string; label: string };
 
 const vehicleBrandLogos: Record<string, BrandLogo> = {
@@ -60,23 +49,9 @@ export default async function FinalDocumentsPage({ params }: { params: Promise<{
   const { id } = await params;
   const supabase = await createServerSupabaseClient();
   const [{ data: claim, error }, { data: documents }, { data: stageRows }] = await Promise.all([
-    supabase
-      .from("claims")
-      .select("id, claim_no, insurer_claim_no, customer_id, current_status, accident_at, accident_location, accident_description, customers(company_name, contact_name, phone, email), vehicles(vehicle_no, vehicle_type, make, model), policies(policy_no, policy_type, start_date, end_date), insurance_companies(name, contact_email, contact_phone)")
-      .eq("id", id)
-      .maybeSingle<ClaimDetail>(),
-    supabase
-      .from("claim_documents")
-      .select("id, document_type, file_name, verification_status, created_at")
-      .eq("claim_id", id)
-      .order("created_at", { ascending: false })
-      .returns<ClaimDocument[]>(),
-    supabase
-      .from("claim_stage_details")
-      .select("id, details, created_at")
-      .eq("claim_id", id)
-      .order("created_at", { ascending: false })
-      .returns<StageDetailRow[]>()
+    supabase.from("claims").select("id, claim_no, insurer_claim_no, customer_id, current_status, accident_at, accident_location, accident_description, customers(company_name, contact_name, phone, email), vehicles(vehicle_no, vehicle_type, make, model), policies(policy_no, policy_type, start_date, end_date), insurance_companies(name, contact_email, contact_phone)").eq("id", id).maybeSingle<ClaimDetail>(),
+    supabase.from("claim_documents").select("id, document_type, file_name, verification_status, created_at").eq("claim_id", id).order("created_at", { ascending: false }).returns<ClaimDocument[]>(),
+    supabase.from("claim_stage_details").select("id, details, created_at").eq("claim_id", id).order("created_at", { ascending: false }).returns<StageDetailRow[]>()
   ]);
 
   if (error || !claim) notFound();
@@ -84,12 +59,14 @@ export default async function FinalDocumentsPage({ params }: { params: Promise<{
   const queue = operationsQueueForStatus(claim.current_status);
   const backHref = queue ? `/claims?queue=${queue.key}` : "/claims";
   const title = `Final Documents - ${claim.claim_no}${claim.insurer_claim_no ? ` / ${claim.insurer_claim_no}` : ""}`;
-  const rows: FinalDocumentRow[] = finalClaimDocuments.map((document, index) => {
+  const rows: FinalDocumentRowV2[] = finalDocumentDefinitions.map((document, index) => {
     const uploaded = latestActiveDocument(documents ?? [], document.type);
     return {
       sr: index + 1,
+      groupIndex: document.groupIndex,
+      groupSr: document.groupSr,
       type: document.type,
-      name: document.title,
+      name: document.name,
       documentId: uploaded?.id ?? null,
       fileName: uploaded?.file_name ?? null,
       viewUrl: uploaded?.id ? `/claim-documents/${uploaded.id}/open` : null,
@@ -103,7 +80,7 @@ export default async function FinalDocumentsPage({ params }: { params: Promise<{
       <div className="mx-auto max-w-[1440px] space-y-2 pb-4">
         <InfoStrip claim={claim} />
         <SpotSurveyDetailsPanel driverName={extractDriverName(claim.accident_description)} driverMobile={extractDriverMobile(claim.accident_description) ?? claim.customers?.phone ?? null} lossLocation={claim.accident_location} />
-        <FinalDocumentsWorkspace claimId={claim.id} rows={rows} dealershipDetails={dealershipDetails} />
+        <FinalDocumentsWorkspaceV2 claimId={claim.id} rows={rows} dealershipDetails={dealershipDetails} />
       </div>
     </ClaimManagerShell>
   );
@@ -113,15 +90,10 @@ function latestActiveDocument(documents: ClaimDocument[], documentType: string) 
   return documents.find((document) => document.document_type?.toLowerCase() === documentType.toLowerCase() && document.verification_status !== "rejected") ?? null;
 }
 
-function extractDealershipDetails(rows: StageDetailRow[]): DealershipDetails | null {
+function extractDealershipDetails(rows: StageDetailRow[]): DealershipDetailsV2 | null {
   const row = rows.find((item) => item.details?.verification_type === "final_documents_dealership_details");
   if (!row?.details) return null;
-  return {
-    dealership_name: typeof row.details.dealership_name === "string" ? row.details.dealership_name : "",
-    dealership_address: typeof row.details.dealership_address === "string" ? row.details.dealership_address : "",
-    contact_person_name: typeof row.details.contact_person_name === "string" ? row.details.contact_person_name : "",
-    contact_number: typeof row.details.contact_number === "string" ? row.details.contact_number : ""
-  };
+  return { dealership_name: typeof row.details.dealership_name === "string" ? row.details.dealership_name : "", dealership_address: typeof row.details.dealership_address === "string" ? row.details.dealership_address : "", contact_person_name: typeof row.details.contact_person_name === "string" ? row.details.contact_person_name : "", contact_number: typeof row.details.contact_number === "string" ? row.details.contact_number : "" };
 }
 
 function InfoStrip({ claim }: { claim: ClaimDetail }) {
