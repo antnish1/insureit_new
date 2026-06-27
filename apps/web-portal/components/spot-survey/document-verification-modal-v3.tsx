@@ -4,12 +4,13 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { verifySpotSurveyDocument } from "@/app/claims/[id]/spot-survey-actions";
 
-type ModalType = "rc" | "insurance" | "dl" | "gr";
+type ModalType = "spot" | "rc" | "insurance" | "dl" | "gr";
 type Result = { ok: boolean; message?: string };
 type Status = "" | "Valid" | "Invalid";
 type InsuranceState = { start: string; end: string; ncb: string; policy: string; gvw: string };
 type DlState = { validUpto: string; inbound: string; validForLossVehicle: string };
 type GrState = { gvw: string; unladen: string; load: string };
+type SpotState = { axleStatus: string; overturned: string };
 
 const rcRows = [
   { dateName: "fitness_valid_upto", statusName: "fitness_status", label: "Fitness Valid Upto" },
@@ -26,6 +27,7 @@ export function DocumentVerificationModalButton({ claimId, documentId, modalType
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<Result | null>(null);
   const [saved, setSaved] = useState(false);
+  const [spot, setSpot] = useState<SpotState>({ axleStatus: "", overturned: "" });
   const [rcDates, setRcDates] = useState<Record<string, string>>({});
   const policyStart = toDateOnly(policyStartDate) ?? "";
   const policyEnd = toDateOnly(policyEndDate) ?? "";
@@ -34,6 +36,7 @@ export function DocumentVerificationModalButton({ claimId, documentId, modalType
   const [gr, setGr] = useState<GrState>({ gvw: "", unladen: "", load: "" });
   const incident = toDateOnly(incidentDate);
 
+  const spotComplete = Boolean(spot.axleStatus && spot.overturned);
   const rcComplete = rcRows.every((row) => Boolean(rcDates[row.dateName]));
   const rcValid = rcRows.every((row) => getStatus(rcDates[row.dateName], incident) === "Valid");
   const insuranceStatus = getStatus(insurance.end, incident);
@@ -47,9 +50,13 @@ export function DocumentVerificationModalButton({ claimId, documentId, modalType
   const grValues = getGrValues(gr);
   const grComplete = Boolean(gr.gvw && gr.unladen && gr.load);
   const grValid = grComplete && grValues.gvw > 0 && grValues.unladen >= 0 && grValues.load >= 0 && grValues.difference >= 0;
-  const canSave = modalType === "rc" ? rcComplete && rcValid : modalType === "insurance" ? insuranceComplete && insuranceValid : modalType === "dl" ? dlValid : grValid;
+  const canSave = modalType === "spot" ? spotComplete : modalType === "rc" ? rcComplete && rcValid : modalType === "insurance" ? insuranceComplete && insuranceValid : modalType === "dl" ? dlValid : grValid;
 
   const message = useMemo(() => {
+    if (modalType === "spot") {
+      if (!spotComplete) return "Select Yes or No for both spot photo verification items.";
+      return "Spot photo verification details are complete.";
+    }
     if (modalType === "rc") {
       if (!rcComplete) return "Enter all six RC expiry dates.";
       if (!rcValid) return "One or more RC fields are invalid. Verification is blocked.";
@@ -72,24 +79,24 @@ export function DocumentVerificationModalButton({ claimId, documentId, modalType
     if (!grComplete) return "Enter GVW, unladen weight and load weight.";
     if (!grValid) return "Load calculation is invalid. Load difference cannot be negative.";
     return `Calculation: (${grValues.gvw} - ${grValues.unladen}) - ${grValues.load} = ${grValues.difference} kg`;
-  }, [modalType, rcComplete, rcValid, policyDatesAvailable, insuranceComplete, insuranceValid, dl.validUpto, dl.inbound, dl.validForLossVehicle, dlDateStatus, grComplete, grValid, grValues.gvw, grValues.unladen, grValues.load, grValues.difference]);
+  }, [modalType, spotComplete, rcComplete, rcValid, policyDatesAvailable, insuranceComplete, insuranceValid, dl.validUpto, dl.inbound, dl.validForLossVehicle, dlDateStatus, grComplete, grValid, grValues.gvw, grValues.unladen, grValues.load, grValues.difference]);
 
   return (
     <div>
       <button type="button" onClick={() => { setResult(null); setOpen(true); }} className={`h-8 w-full rounded-md border text-[12px] font-semibold ${saved ? "border-green-300 bg-green-50 text-green-700" : "border-[#16A36A] bg-white text-[#16895C] hover:bg-[#F2FBF7]"}`}>{saved ? "Verified" : "Verify"}</button>
       {open ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 px-4">
-          <form action={(formData) => { if (!canSave) return; if (modalType === "gr") { formData.set("load_difference_kg", String(grValues.difference)); formData.set("gr_calculation", `(${grValues.gvw} - ${grValues.unladen}) - ${grValues.load} = ${grValues.difference} kg`); } if (modalType === "dl") { formData.set("dl_validity_status", dlDateStatus); } startTransition(async () => { formData.set("claimId", claimId); formData.set("documentId", documentId); const response = await verifySpotSurveyDocument(formData); setResult(response); if (response.ok) { setSaved(true); router.refresh(); } }); }} className={`w-full overflow-hidden rounded-xl bg-white shadow-[0_24px_80px_rgba(0,0,0,0.28)] ${modalType === "gr" || modalType === "dl" ? "max-w-[560px]" : "max-w-[760px]"}`}>
+          <form action={(formData) => { if (!canSave) return; if (modalType === "spot") { formData.set("spot_axle_status", spot.axleStatus); formData.set("spot_overturned", spot.overturned); } if (modalType === "gr") { formData.set("load_difference_kg", String(grValues.difference)); formData.set("gr_calculation", `(${grValues.gvw} - ${grValues.unladen}) - ${grValues.load} = ${grValues.difference} kg`); } if (modalType === "dl") { formData.set("dl_validity_status", dlDateStatus); } startTransition(async () => { formData.set("claimId", claimId); formData.set("documentId", documentId); const response = await verifySpotSurveyDocument(formData); setResult(response); if (response.ok) { setSaved(true); router.refresh(); } }); }} className={`w-full overflow-hidden rounded-xl bg-white shadow-[0_24px_80px_rgba(0,0,0,0.28)] ${modalType === "spot" ? "max-w-[520px]" : modalType === "gr" || modalType === "dl" ? "max-w-[560px]" : "max-w-[760px]"}`}>
             <ModalHeader modalType={modalType} onClose={() => setOpen(false)} />
             <div className="max-h-[68vh] overflow-y-auto">
+              {modalType === "spot" ? <SpotRows values={spot} setValues={setSpot} /> : null}
               {modalType === "rc" ? <RcRows incidentDate={incident} values={rcDates} onChange={(key, value) => setRcDates((prev) => ({ ...prev, [key]: value }))} /> : null}
               {modalType === "insurance" ? <InsuranceRows incidentDate={incident} values={insurance} setValues={setInsurance} /> : null}
               {modalType === "dl" ? <DlRows values={dl} setValues={setDl} incidentDate={incident} /> : null}
               {modalType === "gr" ? <GrRows values={gr} setValues={setGr} /> : null}
-              {modalType === "dl" ? <div className="px-6 pb-4"><p className={`rounded-lg border px-3 py-2 text-[12px] font-semibold ${canSave ? "border-green-200 bg-green-50 text-green-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>{message}</p></div> : <div className="px-6 pb-4"><p className={`rounded-lg border px-3 py-2 text-[12px] font-semibold ${canSave ? "border-green-200 bg-green-50 text-green-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>{message}</p>{result ? <p className={`mt-2 rounded-lg border px-3 py-2 text-[12px] font-semibold ${result.ok ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-700"}`}>{result.message ?? "Verification response received."}</p> : null}</div>}
-              {modalType === "dl" && result ? <div className="px-6 pb-4"><p className={`rounded-lg border px-3 py-2 text-[12px] font-semibold ${result.ok ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-700"}`}>{result.message ?? "Verification response received."}</p></div> : null}
+              <div className="px-6 pb-4"><p className={`rounded-lg border px-3 py-2 text-[12px] font-semibold ${canSave ? "border-green-200 bg-green-50 text-green-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>{message}</p>{result ? <p className={`mt-2 rounded-lg border px-3 py-2 text-[12px] font-semibold ${result.ok ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-700"}`}>{result.message ?? "Verification response received."}</p> : null}</div>
             </div>
-            <div className="flex items-center justify-between border-t border-[#E6EEF7] px-6 py-4"><button type="button" onClick={() => setOpen(false)} className="h-10 rounded-md border border-[#B8C5D6] px-7 text-[13px] font-semibold text-[#071D49]">{result?.ok ? "Close" : "Cancel"}</button><button type="submit" disabled={pending || Boolean(result?.ok) || !canSave} className="h-10 rounded-md bg-[#071D49] px-10 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#A9B4C5] disabled:opacity-70">{pending ? "Saving..." : result?.ok ? "Saved" : "Save & Close"}</button></div>
+            <div className="flex items-center justify-between border-t border-[#E6EEF7] px-6 py-4"><button type="button" onClick={() => setOpen(false)} className="h-10 rounded-md border border-[#B8C5D6] px-7 text-[13px] font-semibold text-[#071D49]">{result?.ok ? "Close" : "Cancel"}</button><button type="submit" disabled={pending || Boolean(result?.ok) || !canSave} className="h-10 rounded-md bg-[#071D49] px-10 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#A9B4C5] disabled:opacity-70">{pending ? "Saving..." : result?.ok ? "Saved" : modalType === "spot" ? "Submit" : "Save & Close"}</button></div>
           </form>
         </div>
       ) : null}
@@ -98,10 +105,18 @@ export function DocumentVerificationModalButton({ claimId, documentId, modalType
 }
 
 function ModalHeader({ modalType, onClose }: { modalType: ModalType; onClose: () => void }) {
-  const title = modalType === "rc" ? "RC Copy Verification Details" : modalType === "insurance" ? "Insurance Copy Verification Details" : modalType === "dl" ? "Driving Licence Verification" : "GR / Load Challan Verification";
-  const subtitle = modalType === "rc" ? "Please verify the validity of the following details from RC." : modalType === "insurance" ? "Please verify the following details from the insurance document." : modalType === "dl" ? "Please verify the details from Driving Licence." : "Please verify the details from GR / Load Challan.";
-  const icon = modalType === "rc" ? "PDF" : modalType === "insurance" ? "Shield" : modalType === "dl" ? "ID" : "Truck";
-  return <div className="flex items-start justify-between border-b border-[#E6EEF7] px-6 py-5"><div className="flex items-start gap-4"><div className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-[#EEF4FF] text-[14px] font-semibold text-[#071D49]">{icon}</div><div><h2 className="text-[22px] font-semibold leading-tight text-[#071D49]">{title}</h2><p className="mt-2 max-w-[520px] text-[13px] leading-5 text-[#4B596B]">{subtitle}</p></div></div><button type="button" onClick={onClose} className="text-[34px] leading-none text-[#071D49]">×</button></div>;
+  const title = modalType === "spot" ? "Verify Spot Photo" : modalType === "rc" ? "RC Copy Verification Details" : modalType === "insurance" ? "Insurance Copy Verification Details" : modalType === "dl" ? "Driving Licence Verification" : "GR / Load Challan Verification";
+  const subtitle = modalType === "spot" ? "Please verify the following details from the spot photo." : modalType === "rc" ? "Please verify the validity of the following details from RC." : modalType === "insurance" ? "Please verify the following details from the insurance document." : modalType === "dl" ? "Please verify the details from Driving Licence." : "Please verify the details from GR / Load Challan.";
+  const icon = modalType === "spot" ? "Photo" : modalType === "rc" ? "PDF" : modalType === "insurance" ? "Shield" : modalType === "dl" ? "ID" : "Truck";
+  return <div className="flex items-start justify-between border-b border-[#E6EEF7] px-6 py-5"><div className="flex items-start gap-4"><div className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-[#EEF4FF] text-[13px] font-semibold text-[#071D49]">{icon}</div><div><h2 className="text-[22px] font-semibold leading-tight text-[#071D49]">{title}</h2><p className="mt-2 max-w-[520px] text-[13px] leading-5 text-[#4B596B]">{subtitle}</p></div></div><button type="button" onClick={onClose} className="text-[34px] leading-none text-[#071D49]">×</button></div>;
+}
+
+function SpotRows({ values, setValues }: { values: SpotState; setValues: (next: SpotState | ((prev: SpotState) => SpotState)) => void }) {
+  return <div className="px-6 py-5"><div className="overflow-hidden rounded-lg border border-[#E6EEF7]"><div className="grid grid-cols-[1fr_86px_86px] bg-[#F6F8FC] text-[12px] font-semibold text-[#071D49]"><div className="px-3 py-2">Verification Items</div><div className="border-l border-[#E6EEF7] px-3 py-2 text-center">Yes</div><div className="border-l border-[#E6EEF7] px-3 py-2 text-center">No</div></div><SpotRadioRow number={1} title="Axel Status" description="Is the vehicle axle intact?" name="spot_axle_status" value={values.axleStatus} onChange={(value) => setValues((prev) => ({ ...prev, axleStatus: value }))} /><SpotRadioRow number={2} title="Overturned" description="Is the vehicle overturned?" name="spot_overturned" value={values.overturned} onChange={(value) => setValues((prev) => ({ ...prev, overturned: value }))} /></div></div>;
+}
+
+function SpotRadioRow({ number, title, description, name, value, onChange }: { number: number; title: string; description: string; name: string; value: string; onChange: (value: string) => void }) {
+  return <div className="grid grid-cols-[1fr_86px_86px] border-t border-[#E6EEF7] text-[#071D49]"><div className="px-3 py-3"><p className="text-[13px] font-semibold">{number}. {title}</p><p className="mt-1 text-[11px] font-medium text-[#526178]">{description}</p></div><label className="grid cursor-pointer place-items-center border-l border-[#E6EEF7] py-3"><span className="text-[21px] text-green-600">⚐</span><input name={name} type="radio" value="Yes" checked={value === "Yes"} onChange={() => onChange("Yes")} className="mt-1 h-4 w-4" /></label><label className="grid cursor-pointer place-items-center border-l border-[#E6EEF7] py-3"><span className="text-[21px] text-red-600">⚐</span><input name={name} type="radio" value="No" checked={value === "No"} onChange={() => onChange("No")} className="mt-1 h-4 w-4" /></label></div>;
 }
 
 function RcRows({ incidentDate, values, onChange }: { incidentDate: string | null; values: Record<string, string>; onChange: (key: string, value: string) => void }) { return <div className="divide-y divide-[#E6EEF7]">{rcRows.map((row, index) => <DateRow key={row.dateName} number={index + 1} label={row.label} dateName={row.dateName} statusName={row.statusName} value={values[row.dateName] ?? ""} incidentDate={incidentDate} onChange={(value) => onChange(row.dateName, value)} />)}</div>; }
