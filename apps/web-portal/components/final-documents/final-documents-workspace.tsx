@@ -12,6 +12,7 @@ export type FinalDocumentRow = {
   status: "Pending" | "Uploaded" | "Verified";
   documentId: string | null;
   fileName: string | null;
+  viewUrl: string | null;
 };
 
 export type DealershipDetails = {
@@ -63,7 +64,10 @@ export function FinalDocumentsWorkspace({ claimId, rows, dealershipDetails }: { 
     <div className="space-y-3">
       <section className="rounded-2xl border border-[#DFE8F4] bg-white p-4 shadow-[0_8px_22px_rgba(7,29,73,0.035)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-[15px] font-semibold text-[#071D49]">Dealership Details</h2>
+          <div>
+            <h2 className="text-[15px] font-semibold text-[#071D49]">Dealership Details</h2>
+            <p className="mt-1 text-[11px] font-medium text-[#526178]">Saved details are retained in claim history and can be shown later for customer sharing.</p>
+          </div>
           <button
             type="button"
             disabled={isPending && pendingAction === "dealership"}
@@ -134,9 +138,13 @@ export function FinalDocumentsWorkspace({ claimId, rows, dealershipDetails }: { 
                       });
                       event.target.value = "";
                     }} />
-                    <button type="button" onClick={() => fileInputs.current[row.type]?.click()} disabled={isPending && pendingAction === `upload-${row.type}`} className="rounded-md border border-[#BFD3F7] bg-white px-3 py-1 text-[11px] font-semibold text-[#174EA6] transition hover:bg-[#F7FAFF] disabled:opacity-60">
-                      {isPending && pendingAction === `upload-${row.type}` ? "Uploading..." : row.status === "Pending" ? "Upload" : "Replace File"}
-                    </button>
+                    {row.viewUrl ? (
+                      <a href={row.viewUrl} target="_blank" rel="noreferrer" className="inline-flex rounded-md border border-[#BFD3F7] bg-white px-3 py-1 text-[11px] font-semibold text-[#174EA6] transition hover:bg-[#F7FAFF]">View</a>
+                    ) : (
+                      <button type="button" onClick={() => fileInputs.current[row.type]?.click()} disabled={isPending && pendingAction === `upload-${row.type}`} className="rounded-md border border-[#BFD3F7] bg-white px-3 py-1 text-[11px] font-semibold text-[#174EA6] transition hover:bg-[#F7FAFF] disabled:opacity-60">
+                        {isPending && pendingAction === `upload-${row.type}` ? "Uploading..." : "Upload"}
+                      </button>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-center"><StatusPill status={row.status} /></td>
                   <td className="px-3 py-2">
