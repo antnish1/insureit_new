@@ -99,6 +99,10 @@ export default function LoginScreen() {
           setPendingSession(data.session);
           return;
         }
+        if (compatible && enrolled && savedUserId === data.user.id && data.session?.refresh_token) {
+          await saveSessionForBiometric(data.session, data.user.id);
+          setBiometricReady(true);
+        }
         await routeSignedInUser(data.user, router);
       }
     } catch (nextError) {
@@ -120,8 +124,7 @@ export default function LoginScreen() {
         disableDeviceFallback: false,
       });
       if (result.success) {
-        await AsyncStorage.setItem(biometricUserKey, pendingUser.id);
-        await saveSessionForBiometric(pendingSession);
+        await saveSessionForBiometric(pendingSession, pendingUser.id);
         setBiometricReady(true);
       }
       await routeSignedInUser(pendingUser, router);
@@ -134,6 +137,8 @@ export default function LoginScreen() {
 
   async function skipBiometricForPendingUser() {
     if (!pendingUser) return;
+    await clearBiometricSession();
+    setBiometricReady(false);
     await routeSignedInUser(pendingUser, router);
   }
 
@@ -150,8 +155,9 @@ export default function LoginScreen() {
       if (!result.success) return;
       const restoredUser = await restoreBiometricSession();
       if (!restoredUser) {
+        await clearBiometricSession();
         setBiometricReady(false);
-        setError('No saved biometric login found.');
+        setError('Biometric login is not set up on this device. Login with password once and enable biometrics again.');
         return;
       }
       await routeSignedInUser(restoredUser, router);
@@ -263,10 +269,17 @@ function signupMessage(value?: string) {
   return '';
 }
 
-async function saveSessionForBiometric(session: Session | null) {
+async function saveSessionForBiometric(session: Session | null, userId: string) {
   if (!supportsSecureBiometric) throw new Error('Biometric login is not available on web.');
   if (!session?.refresh_token) throw new Error('Missing refresh token.');
+  await AsyncStorage.setItem(biometricUserKey, userId);
   await SecureStore.setItemAsync(biometricRefreshTokenKey, session.refresh_token);
+  await SecureStore.deleteItemAsync(legacyBiometricSessionKey).catch(() => undefined);
+}
+
+async function clearBiometricSession() {
+  await AsyncStorage.removeItem(biometricUserKey);
+  await SecureStore.deleteItemAsync(biometricRefreshTokenKey).catch(() => undefined);
   await SecureStore.deleteItemAsync(legacyBiometricSessionKey).catch(() => undefined);
 }
 
@@ -276,7 +289,7 @@ async function restoreBiometricSession() {
   if (!refreshToken) return null;
   const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
   if (error || !data.session?.user) return null;
-  await saveSessionForBiometric(data.session);
+  await saveSessionForBiometric(data.session, data.session.user.id);
   return data.session.user;
 }
 
