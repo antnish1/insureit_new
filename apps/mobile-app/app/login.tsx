@@ -13,6 +13,8 @@ import { supabase } from '@/lib/supabase';
 import type { Session, User } from '@supabase/supabase-js';
 
 const biometricUserKey = 'insureit.biometric.user-id';
+const biometricEmailKey = 'insureit.biometric.email';
+const biometricPasswordKey = 'insureit.biometric.password';
 const biometricRefreshTokenKey = 'insureit.biometric.refresh-token';
 const legacyBiometricSessionKey = 'insureit.biometric.session';
 const supportsSecureBiometric = Platform.OS !== 'web';
@@ -27,6 +29,7 @@ export default function LoginScreen() {
   const [canEnrollBiometric, setCanEnrollBiometric] = useState(false);
   const [pendingUser, setPendingUser] = useState<User | null>(null);
   const [pendingSession, setPendingSession] = useState<Session | null>(null);
+  const [pendingCredentials, setPendingCredentials] = useState<{ email: string; password: string } | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState(() => signupMessage(params.signup));
   const opacity = useRef(new Animated.Value(0)).current;
@@ -55,15 +58,17 @@ export default function LoginScreen() {
           }
           return;
         }
-        const [compatible, enrolled, savedUserId, savedRefreshToken] = await Promise.all([
+        const [compatible, enrolled, savedUserId, savedEmail, savedPassword, savedRefreshToken] = await Promise.all([
           LocalAuthentication.hasHardwareAsync(),
           LocalAuthentication.isEnrolledAsync(),
           AsyncStorage.getItem(biometricUserKey),
+          SecureStore.getItemAsync(biometricEmailKey),
+          SecureStore.getItemAsync(biometricPasswordKey),
           SecureStore.getItemAsync(biometricRefreshTokenKey),
         ]);
         if (active) {
           setCanEnrollBiometric(Boolean(compatible && enrolled));
-          setBiometricReady(Boolean(compatible && enrolled && savedUserId && savedRefreshToken));
+          setBiometricReady(Boolean(compatible && enrolled && savedUserId && ((savedEmail && savedPassword) || savedRefreshToken)));
         }
       } catch {
         if (active) setBiometricReady(false);
@@ -87,20 +92,23 @@ export default function LoginScreen() {
           await routeSignedInUser(data.user, router);
           return;
         }
-        const [compatible, enrolled, savedUserId, savedRefreshToken] = await Promise.all([
+        const normalizedEmail = email.trim();
+        const [compatible, enrolled, savedUserId, savedEmail, savedPassword] = await Promise.all([
           LocalAuthentication.hasHardwareAsync(),
           LocalAuthentication.isEnrolledAsync(),
           AsyncStorage.getItem(biometricUserKey),
-          SecureStore.getItemAsync(biometricRefreshTokenKey),
+          SecureStore.getItemAsync(biometricEmailKey),
+          SecureStore.getItemAsync(biometricPasswordKey),
         ]);
         setCanEnrollBiometric(Boolean(compatible && enrolled));
-        if (compatible && enrolled && (savedUserId !== data.user.id || !savedRefreshToken)) {
+        if (compatible && enrolled && (savedUserId !== data.user.id || savedEmail !== normalizedEmail || !savedPassword)) {
           setPendingUser(data.user);
           setPendingSession(data.session);
+          setPendingCredentials({ email: normalizedEmail, password });
           return;
         }
-        if (compatible && enrolled && savedUserId === data.user.id && data.session?.refresh_token) {
-          await saveSessionForBiometric(data.session, data.user.id);
+        if (compatible && enrolled && savedUserId === data.user.id) {
+          await saveBiometricLogin(data.user.id, normalizedEmail, password, data.session);
           setBiometricReady(true);
         }
         await routeSignedInUser(data.user, router);
@@ -124,7 +132,8 @@ export default function LoginScreen() {
         disableDeviceFallback: false,
       });
       if (result.success) {
-        await saveSessionForBiometric(pendingSession, pendingUser.id);
+        if (!pendingCredentials) throw new Error('Missing biometric credentials.');
+        await saveBiometricLogin(pendingUser.id, pendingCredentials.email, pendingCredentials.password, pendingSession);
         setBiometricReady(true);
       }
       await routeSignedInUser(pendingUser, router);
@@ -153,11 +162,11 @@ export default function LoginScreen() {
         disableDeviceFallback: false,
       });
       if (!result.success) return;
-      const restoredUser = await restoreBiometricSession();
+      const restoredUser = await restoreBiometricLogin();
       if (!restoredUser) {
         await clearBiometricSession();
         setBiometricReady(false);
-        setError('Biometric login is not set up on this device. Login with password once and enable biometrics again.');
+        setError('Biometric login needs to be set up again. Login with password once and tap Enable biometrics.');
         return;
       }
       await routeSignedInUser(restoredUser, router);
@@ -269,27 +278,42 @@ function signupMessage(value?: string) {
   return '';
 }
 
-async function saveSessionForBiometric(session: Session | null, userId: string) {
+async function saveBiometricLogin(userId: string, email: string, password: string, session: Session | null) {
   if (!supportsSecureBiometric) throw new Error('Biometric login is not available on web.');
-  if (!session?.refresh_token) throw new Error('Missing refresh token.');
   await AsyncStorage.setItem(biometricUserKey, userId);
-  await SecureStore.setItemAsync(biometricRefreshTokenKey, session.refresh_token);
+  await SecureStore.setItemAsync(biometricEmailKey, email);
+  await SecureStore.setItemAsync(biometricPasswordKey, password);
+  if (session?.refresh_token) await SecureStore.setItemAsync(biometricRefreshTokenKey, session.refresh_token);
   await SecureStore.deleteItemAsync(legacyBiometricSessionKey).catch(() => undefined);
 }
 
 async function clearBiometricSession() {
   await AsyncStorage.removeItem(biometricUserKey);
+  await SecureStore.deleteItemAsync(biometricEmailKey).catch(() => undefined);
+  await SecureStore.deleteItemAsync(biometricPasswordKey).catch(() => undefined);
   await SecureStore.deleteItemAsync(biometricRefreshTokenKey).catch(() => undefined);
   await SecureStore.deleteItemAsync(legacyBiometricSessionKey).catch(() => undefined);
 }
 
-async function restoreBiometricSession() {
+async function restoreBiometricLogin() {
   if (!supportsSecureBiometric) return null;
+  const [savedUserId, savedEmail, savedPassword] = await Promise.all([
+    AsyncStorage.getItem(biometricUserKey),
+    SecureStore.getItemAsync(biometricEmailKey),
+    SecureStore.getItemAsync(biometricPasswordKey),
+  ]);
+  if (savedEmail && savedPassword) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email: savedEmail, password: savedPassword });
+    if (error || !data.user) return null;
+    await saveBiometricLogin(data.user.id, savedEmail, savedPassword, data.session);
+    return data.user;
+  }
+
   const refreshToken = await SecureStore.getItemAsync(biometricRefreshTokenKey);
   if (!refreshToken) return null;
   const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
   if (error || !data.session?.user) return null;
-  await saveSessionForBiometric(data.session, data.session.user.id);
+  if (savedUserId && data.session.user.id !== savedUserId) return null;
   return data.session.user;
 }
 
