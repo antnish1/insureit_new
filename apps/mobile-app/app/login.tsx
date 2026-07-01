@@ -131,11 +131,14 @@ export default function LoginScreen() {
         cancelLabel: 'Skip',
         disableDeviceFallback: false,
       });
-      if (result.success) {
-        if (!pendingCredentials) throw new Error('Missing biometric credentials.');
-        await saveBiometricLogin(pendingUser.id, pendingCredentials.email, pendingCredentials.password, pendingSession);
-        setBiometricReady(true);
-      }
+        if (result.success) {
+          if (!pendingCredentials) throw new Error('Missing biometric credentials.');
+          await saveBiometricLogin(pendingUser.id, pendingCredentials.email, pendingCredentials.password, pendingSession);
+          const saved = await hasSavedBiometricLogin();
+          if (!saved) throw new Error('Biometric credentials were not saved.');
+          setBiometricReady(true);
+          setMessage('Biometric login is enabled on this device.');
+        }
       await routeSignedInUser(pendingUser, router);
     } catch {
       setError('Biometric setup failed.');
@@ -166,7 +169,7 @@ export default function LoginScreen() {
       if (!restoredUser) {
         await clearBiometricSession();
         setBiometricReady(false);
-        setError('Biometric login needs to be set up again. Login with password once and tap Enable biometrics.');
+        setError('Biometric login is not saved on this device. Login with password, then tap Enable biometrics.');
         return;
       }
       await routeSignedInUser(restoredUser, router);
@@ -175,6 +178,13 @@ export default function LoginScreen() {
     } finally {
       setBiometricLoading(false);
     }
+  }
+
+  async function resetBiometricSetup() {
+    await clearBiometricSession();
+    setBiometricReady(false);
+    setError('');
+    setMessage('Biometric setup was reset. Login with password, then enable biometrics again.');
   }
 
   return (
@@ -207,6 +217,15 @@ export default function LoginScreen() {
             </View>
 
             {error ? <AuthStatusMessage type="error">{error}</AuthStatusMessage> : null}
+            {error.toLowerCase().includes('biometric login is not saved') ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void resetBiometricSetup()}
+                style={authExperienceStyles.helperLink}
+              >
+                <Text style={authExperienceStyles.helperLinkText}>Reset biometric setup</Text>
+              </Pressable>
+            ) : null}
             {message ? <AuthStatusMessage type="success">{message}</AuthStatusMessage> : null}
 
             <PremiumLoginField
@@ -260,7 +279,6 @@ export default function LoginScreen() {
   );
 
 }
-
 function authErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : '';
   const lowerMessage = message.toLowerCase();
@@ -293,6 +311,15 @@ async function clearBiometricSession() {
   await SecureStore.deleteItemAsync(biometricPasswordKey).catch(() => undefined);
   await SecureStore.deleteItemAsync(biometricRefreshTokenKey).catch(() => undefined);
   await SecureStore.deleteItemAsync(legacyBiometricSessionKey).catch(() => undefined);
+}
+
+async function hasSavedBiometricLogin() {
+  const [savedUserId, savedEmail, savedPassword] = await Promise.all([
+    AsyncStorage.getItem(biometricUserKey),
+    SecureStore.getItemAsync(biometricEmailKey),
+    SecureStore.getItemAsync(biometricPasswordKey),
+  ]);
+  return Boolean(savedUserId && savedEmail && savedPassword);
 }
 
 async function restoreBiometricLogin() {
